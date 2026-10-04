@@ -29,7 +29,7 @@ LIEUX = {
     'Irak': "irak iraq irakien iraqi bagdad baghdad",
     'Arabie saoudite': "saoudite saoudien saoudienne saudi riyad riyadh",
     'Yémen': "yemen yemenite houthis houthi sanaa",
-    'Émirats arabes unis': "emirats dubai dhabi flydubai",
+    'Émirats arabes unis': "emirats dubai dhabi",
     'Égypte': "egypte egyptien egyptienne egypt egyptian caire cairo",
     'Maroc': "maroc marocain marocaine morocco moroccan rabat casablanca",
     'Algérie': "algerie algerien algerienne algeria algerian alger",

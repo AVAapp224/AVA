@@ -317,6 +317,9 @@ def recuperer_tout():
                     articles[cle] = a = dict(id=hashlib.md5(cle.encode()).hexdigest()[:10], titre=it['titre'], lien=it['lien'], resume=it['resume'],
                                              date=d, image=it['image'], source=nom, source_id=sid, pays_source=pays,
                                              langue=langue, indices=set())
+                if theme == '@monde':               # rubrique internationale d'un grand média
+                    a['bureau_monde'] = True
+                    theme = None
                 if theme:
                     if theme.endswith('~'):        # rubrique large (ex. « Pixels » du Monde) : indice plus faible
                         theme = theme[:-1]
@@ -362,7 +365,7 @@ def classer(a):
     a['lieu'] = lieu(a)
 
 # Mêmes mots en anglais et en français, pour reconnaître un même sujet dans les deux langues
-ALIAS = dict(p.split('=') for p in """spain=espagne germany=allemagne britain=royaume-uni british=royaume-uni china=chine chinese=chine russia=russie russian=russie
+ALIAS = dict(p.split('=') for p in """kiev=kyiv kyiv=kyiv spain=espagne germany=allemagne britain=royaume-uni british=royaume-uni china=chine chinese=chine russia=russie russian=russie
 ukrainian=ukraine israeli=israel brazil=bresil brazilian=bresil mexico=mexique japan=japon japanese=japon india=inde indian=inde korea=coree korean=coree
 lebanon=liban syria=syrie turkey=turquie greece=grece greek=grece italy=italie italian=italie poland=pologne netherlands=pays-bas belgium=belgique
 switzerland=suisse london=londres moscow=moscou beijing=pekin brussels=bruxelles geneva=geneve nato=otan european=europe europe=europe
@@ -380,11 +383,34 @@ def jetons(a):
     noms = set()
     for i, m in enumerate(MAJ.finditer(titre)):
         mot = norm(m.group(1)).strip("'’-")
-        if (m.start() == 0 and (mot not in NOMS_PROPRES or mot in MINUSCULES)) or mot in VIDES:
+        if (m.start() == 0 and (mot not in NOMS_PROPRES or courant(mot))) or mot in VIDES:
+            continue
+        if style_titre(titre) and (mot not in NOMS_PROPRES or courant(mot)):   # titre à l'anglaise : majuscules partout
             continue
         noms.add(ALIAS.get(mot, mot))
     mots = {ALIAS.get(w, w) for w in re.findall(r"[a-z0-9\-]{4,}", norm(titre + ' ' + a['resume'][:120])) if w not in VIDES}
+    noms |= {w for w in re.findall(r"[a-z0-9\-]{4,}", norm(titre)) if MAJ_COMPTE.get(w, 0) >= 3 and not courant(w)}
     return mots | noms, noms
+
+TRADUCTION = dict(p.split('=') for p in """military=militaire minister=ministre ministers=ministre war=guerre wars=guerre bridge=pont strike=frappe strikes=frappe
+attack=attaque attacks=attaque police=police students=lyceen student=lyceen schools=lycee school=lycee protest=manifestation protests=manifestation
+election=election elections=election vote=vote polls=vote president=president presidential=presidentielle government=gouvernement
+bank=banque banks=banque oil=petrole prices=prix price=prix killed=morts dead=morts deaths=morts hospital=hopital fire=incendie
+flood=inondation floods=inondation storm=tempete hurricane=ouragan court=tribunal trial=proces judge=juge prison=prison rebels=rebelles
+army=armee troops=troupes forces=forces capital=capitale peace=paix talks=negociations deal=accord agreement=accord""".split())
+
+def racine(w):
+    """Racine simple d'un mot : « lycéens », « lycées », « lycéenne » → « lyce »."""
+    w = TRADUCTION.get(w, w).rstrip('s')
+    for fin in ('enne', 'en', 'ee', 'e'):
+        if w.endswith(fin) and len(w) - len(fin) >= 4:
+            return w[: -len(fin)]
+    return w
+
+def mots_sujet(titre):
+    # les noms de pays et de villes ne disent pas de quoi parle l'article : « Chine » ne fait pas deux sujets identiques
+    return {racine(ALIAS.get(w, w)) for w in re.findall(r"[a-z0-9\-]{4,}", norm(titre))
+            if w not in VIDES and w not in COURANTS and w not in NOMS_PAYS and ALIAS.get(w, w) not in NOMS_PAYS}
 
 def empreinte(titre):
     """Les mots importants d'un titre, pour repérer deux titres qui disent la même chose."""
@@ -405,8 +431,20 @@ def style_titre(titre):
     mots = [m for m in re.findall(r"[A-Za-zÀ-ÿ][\w'’\-]*", titre) if len(m) > 3]
     return len(mots) >= 4 and sum(m[0].isupper() for m in mots) / len(mots) > 0.6
 
+MAJ_COMPTE, MIN_COMPTE = {}, {}
+
+def courant(mot):
+    """Vrai si le mot s'écrit plus souvent en minuscules qu'avec une majuscule (« exécution » oui, « Flydubai » non)."""
+    return MIN_COMPTE.get(mot, 0) > MAJ_COMPTE.get(mot, 0)
+
 def apprendre_noms(articles):
     for a in articles:
+        for m in MAJ.finditer(a['titre']):
+            w = norm(m.group(1)).strip("'’-")
+            MAJ_COMPTE[w] = MAJ_COMPTE.get(w, 0) + 1
+        for w in re.findall(r"\b[a-zà-ÿ][\w\-]{2,}", a['titre']):
+            w = norm(w)
+            MIN_COMPTE[w] = MIN_COMPTE.get(w, 0) + 1
         if style_titre(a['titre']):
             continue
         for m in MAJ.finditer(a['titre']):
@@ -433,7 +471,7 @@ def gras(titre):
         if len(mots) > 1 and m.group(0).isupper():   # mots tout en majuscules : une étiquette, pas un nom
             continue
         if majuscules_partout:   # titre à l'anglaise : on ne garde que les noms propres connus
-            mots = [w for w in mots if norm(w.strip("'’")) in NOMS_PROPRES and norm(w.strip("'’")) not in MINUSCULES]
+            mots = [w for w in mots if norm(w.strip("'’")) in NOMS_PROPRES and not courant(norm(w.strip("'’")))]
             if not mots:
                 continue
         while len(mots) > 1 and norm(mots[0]) in COURANTS | VIDES:   # « Au Brésil » → « Brésil »
@@ -445,7 +483,7 @@ def gras(titre):
         if len(mots) == 1:
             suite = titre[m.end():m.end() + 2].strip()
             # un mot seul en début de titre suivi d'une minuscule n'est qu'une majuscule de début de phrase
-            if m.start() == 0 and suite[:1].islower() and (premier not in NOMS_PROPRES or premier in MINUSCULES):
+            if m.start() == 0 and suite[:1].islower() and (premier not in NOMS_PROPRES or courant(premier)):
                 continue
             if premier in COURANTS or premier in VIDES or len(g) < 3:
                 continue
@@ -565,6 +603,16 @@ def carte(a):
                 lien=a['lien'], source=a['source'], date=iso(a['date']), lieu=a.get('lieu'), theme=a['theme'], rubrique=THEMES.get(a['theme'], 'Actualité'), pays=a['pays'],
                 langue=a['langue'], autres=autres[:6])
 
+# les noms de pays eux-mêmes (pas les villes ni les dirigeants) : « Chine », « China », « chinois »…
+NOMS_PAYS = {w for nom, mots in LIEUX.items() for w in mots.split() if w[:4] == norm(nom).replace(' ', '')[:4]} | set("""china chinese japan japanese germany german spain spanish
+italy italian britain british england english french america american americans usa canada canadian canadians india indian brazil brazilian
+mexico mexican russia russian ukraine ukrainian israel israeli iran iranian korea korean taiwan turkey turkish egypt egyptian greece greek poland
+polish australia australian argentina argentine pakistan afghanistan syria syrian lebanon lebanese yemen yemeni saudi nigeria nigerian ethiopia
+ethiopian congo sudan venezuela colombia chile peru cuba haiti latvia malaysia thailand vietnam indonesia philippines""".split())
+MOTS_DE_LIEUX = {w for mots in LIEUX.values() for w in mots.split()} | {'israel', 'trump', 'macron', 'poutine', 'putin', 'netanyahu', 'netanyahou', 'zelensky', 'carney', 'europe', 'europeen', 'european', 'onu', 'otan', 'nato', 'afrique', 'asie', 'amerique', 'moyen-orient'}
+MOTS_SUJET_LARGES = set()   # mêmes mots, plus fréquents : servent quand deux articles parlent du même pays
+MOTS_SUJET = set()     # mots propres à un sujet du moment (présents dans 2 à 15 sujets) : « lycée », « Taëz », « banque »…
+RARES_LARGES = set()   # noms propres d'un même grand sujet (jusqu'à 25 sujets) : sert à ne pas le répéter dans le fil
 RARES = set()   # noms propres présents dans peu de sujets : s'ils sont partagés, c'est le même sujet (même dans deux langues)
 
 def noms_du_groupe(g):
@@ -577,6 +625,128 @@ def calculer_rares(groupes):
             compte[n] = compte.get(n, 0) + 1
     RARES.clear()
     RARES.update(n for n, c in compte.items() if c <= 6 and len(n) >= 4)
+    df = {}
+    for g in groupes:
+        for w in mots_sujet(representant(g)['titre']):
+            df[w] = df.get(w, 0) + 1
+    MOTS_SUJET.clear()
+    MOTS_SUJET.update(w for w, c in df.items() if 2 <= c <= 15 and len(w) >= 4)
+    MOTS_SUJET_LARGES.clear()
+    MOTS_SUJET_LARGES.update(w for w, c in df.items() if 2 <= c <= 200 and len(w) >= 4 and w not in MOTS_DE_LIEUX)
+    RARES_LARGES.clear()
+    RARES_LARGES.update(n for n, c in compte.items() if 2 <= c <= 80 and len(n) >= 4 and n not in COURANTS and n not in MOTS_DE_LIEUX and not courant(n))
+
+# ---------------------------------------------------------------- l'accueil : une vitrine du monde
+# Grands médias de référence : un sujet qu'ils traitent compte même s'ils sont seuls à en parler (ex. le FT sur les banques chinoises).
+REFERENCE = {'ft', 'economist', 'bbc', 'guardian', 'nyt', 'wapo', 'wsj', 'lemonde', 'aljazeera', 'scmp', 'dw', 'france24', 'rfi',
+             'bloomberg', 'npr', 'japantimes', 'thehindu', 'straitstimes', 'kyivindependent', 'meduza', 'dailymaverick', 'cna',
+             'courrierinter', 'elpais', 'spiegel', 'lefigaro', 'radiocanada', 'cbc', 'ledevoir'}
+
+def importance_monde(g):
+    """Ce qui compte pour le monde entier : reprise par beaucoup de médias, de plusieurs pays, et par des médias de référence."""
+    arts = g['articles']
+    medias = {x['source_id'] for x in arts}
+    pays = {x['pays_source'] for x in arts}
+    s = len(medias) + 1.5 * (len(pays) - 1)
+    if medias & REFERENCE:
+        s += 3
+    if any(x.get('bureau_monde') for x in arts):
+        s += 1.5
+    if len(pays) == 1 and not any(x.get('bureau_monde') for x in arts) and not g.get('theme'):
+        s *= 0.35                       # fait divers d'un seul pays : pas pour la vitrine du monde
+    if AMPLEUR.search(norm(' '.join(x['titre'] for x in arts[:3]))):
+        s *= 2.2                        # « des centaines de banques », « des milliers de morts », « historique »…
+    age = (dt.datetime.now(dt.timezone.utc) - max(x['date'] for x in arts)).total_seconds() / 3600
+    return s * math.exp(-age / 20)
+
+AMPLEUR = re.compile(r"\b(centaines|milliers|millions|milliards|hundreds|thousands|millions|billions|historique|historic|sans precedent|unprecedented|crise|crisis|seisme|earthquake|tsunami|coup d'etat|famine|epidemie|pandemic|genocide|faillite|faillites|bankruptcy|collapse|effondrement|krach)\b")
+# pays dont nos médias parlent déjà beaucoup : le « reste du monde » a ses places réservées dans la vitrine
+TRES_COUVERTS = {'France', 'Québec', 'Canada', 'États-Unis', 'Royaume-Uni', 'Belgique', 'Suisse'}
+
+def noms_sujet(g):
+    return set().union(*(x.get('_noms', set()) for x in g['articles'][:5]))
+
+def lieu_du_groupe(g):
+    lieux = [x['lieu'] for x in g['articles'] if x.get('lieu')]
+    return max(set(lieux), key=lieux.count) if lieux else None
+
+def une_monde(groupes, n=10):
+    """Les infos du jour : les plus importantes, mais pas deux fois le même pays (sauf événement énorme)."""
+    out, par_lieu = [], {}
+    for g in sans_doublon(sorted(groupes, key=importance_monde, reverse=True)[:80]):
+        l = lieu_du_groupe(g) or '?'
+        limite = 2 if g['nb_sources'] >= 12 else 1
+        if par_lieu.get(l, 0) >= limite:
+            continue
+        par_lieu[l] = par_lieu.get(l, 0) + 1
+        out.append(g)
+        if len(out) >= n:
+            break
+    return [sujet(g) for g in out]
+
+def fil_monde(groupes, n, deja=()):
+    """Le fil de l'accueil : les sujets du monde entier par importance.
+    - une place sur trois est réservée au reste du monde (hors pays déjà très couverts par nos médias) ;
+    - un même pays : au plus 8 % du fil, et jamais 2 fois sur 5 articles d'affilée ;
+    - un même grand sujet n'apparaît qu'une fois, même raconté sous plusieurs angles."""
+    liens_deja = {l for x in deja for l in [x.get('lien')] + [s_['lien'] for s_ in x.get('sources', [])]}
+    empreintes = [empreinte(x['titre']) for x in deja]
+    noms_pris = [set(re.findall(r"[a-z\-]{4,}", norm(x['titre']))) & RARES_LARGES for x in deja]
+    sujets_pris = [(x.get('lieu') or '?', mots_sujet(x['titre'])) for x in deja]
+    tri = sorted(groupes, key=importance_monde, reverse=True)[:900]
+    principal = tri
+    monde = [g for g in tri if (lieu_du_groupe(g) or '?') not in TRES_COUVERTS and lieu_du_groupe(g)]
+    out, par_lieu, par_media, recents, utilises = [], {}, {}, [], set()
+    plafond = max(3, int(n * 0.08))
+    def accepter(g):
+        a = representant(g)
+        if id(g) in utilises or a['lien'] in liens_deja or any(x['lien'] in liens_deja for x in g['articles']):
+            return None
+        e = empreinte(a['titre'])
+        if any(meme_sujet(e, f) for f in empreintes):
+            return None
+        ns = noms_sujet(g)
+        if any(len(ns & p) >= 1 for p in noms_pris if p) and (ns & RARES_LARGES):
+            if any(ns & p & RARES_LARGES for p in noms_pris):
+                return None
+        l = lieu_du_groupe(g) or '?'
+        ms = mots_sujet(a['titre'])
+        for pl, pm in sujets_pris:
+            commun = ms & pm
+            if (l == pl and l != '?' and commun & MOTS_SUJET_LARGES) or len(commun & MOTS_SUJET) >= 2:
+                return None
+        if par_lieu.get(l, 0) >= (plafond * 2 if l == '?' else plafond) or par_media.get(a['source_id'], 0) >= 5:
+            return None
+        if l != '?' and (recents[-5:].count(l) >= 2 or par_lieu.get(l, 0) >= 1 + len(out) // 15):
+            return None
+        return a, e, ns, l, ms
+    def prochain(liste):
+        # on reparcourt la liste à chaque fois : un sujet refusé un moment (pays déjà vu juste avant) peut revenir plus bas
+        for g_ in liste:
+            if id(g_) in utilises:
+                continue
+            c_ = accepter(g_)
+            if c_:
+                return g_, c_
+        return None, None
+    while len(out) < n:
+        g, choix = (prochain(monde) if len(out) % 3 == 2 else (None, None))
+        if choix is None:
+            g, choix = prochain(principal)
+        if choix is None:
+            break
+        a, e, ns, l, ms = choix
+        sujets_pris.append((l, ms))
+        utilises.add(id(g))
+        par_lieu[l] = par_lieu.get(l, 0) + 1
+        par_media[a['source_id']] = par_media.get(a['source_id'], 0) + 1
+        recents.append(l)
+        empreintes.append(e)
+        noms_pris.append(ns & RARES_LARGES)
+        c = carte(a)
+        c['lieu'] = c.get('lieu') or lieu_du_groupe(g)
+        out.append(c)
+    return out
 
 def sans_doublon(groupes):
     out, empreintes, noms = [], [], []
@@ -863,7 +1033,7 @@ def lancer():
     essentiel = lire_json(chemin_jour, None)
     if essentiel is None:
         essentiel = dict(jour=jour, fige_a=iso(dt.datetime.now(dt.timezone.utc)),
-                         une=top_sujets(groupes, lambda g: True),
+                         une=une_monde(groupes),
                          themes={t: top_sujets(groupes, lambda g, t=t: t in g['rubriques'] and g['theme'] == t) for t in THEMES},
                          pays={p: top_sujets(groupes, lambda g, p=p: p in g['pays']) for p in PAYS_MOTS})
         essentiel['une'] = photos.garder(essentiel['une'], 5, True)
@@ -877,7 +1047,7 @@ def lancer():
             x['lieu'] = lieu(dict(titre=x['titre'], resume=x.get('resume', ''), pays_source=None, langue='fr'))
 
     # --- les fils : mis à jour à chaque passage
-    fils = dict(accueil=fil(articles, lambda a: True, 130, essentiel['une']),
+    fils = dict(accueil=fil_monde(groupes, 130, essentiel['une']),
                 themes={t: fil(articles, lambda a, t=t: a['theme'] == t and (t in a['indices'] or not a['indices']), 80, essentiel['themes'].get(t, [])) for t in THEMES},
                 pays={p: fil(articles, lambda a, p=p: p in a['pays'], 80, essentiel['pays'].get(p, [])) for p in PAYS_MOTS})
     fils = dict(accueil=photos.garder(fils['accueil'], 90, analyser=48),
