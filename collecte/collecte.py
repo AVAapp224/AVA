@@ -32,6 +32,8 @@ ETAT = os.path.join(ICI, 'etat')
 FUSEAU = ZoneInfo('America/Toronto')
 HEURE_DU_JOUR = 6          # l'essentiel du jour est figé à partir de cette heure
 FENETRE_H = 48             # on garde les articles des 48 dernières heures
+FENETRE_LENTE_H = 7 * 24   # sauf pour les thèmes où l'on publie moins souvent : une semaine
+THEMES_LENTS = {'voyage', 'mode', 'gastronomie', 'culture'}
 UA = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
       'Accept-Encoding': 'gzip'}
 CTX = ssl.create_default_context()
@@ -189,6 +191,7 @@ def image_de(item, brut):
 
 def analyser(data):
     """Renvoie une liste de dicts (titre, lien, resume, date, image). Tolère les flux un peu cassés."""
+    data = data.lstrip()   # certains flux commencent par des espaces, ce que le lecteur XML refuse
     try:
         racine = ET.fromstring(data)
         items = racine.findall('.//item') or racine.findall('.//{http://www.w3.org/2005/Atom}entry') or racine.findall('.//{http://purl.org/rss/1.0/}item')
@@ -257,7 +260,8 @@ def recuperer_tout():
                 d = it['date'] or date_dans_lien(it['lien'])
                 if d is None:   # sans date fiable, on ne peut pas savoir si c'est récent : on ignore
                     continue
-                if d > maintenant + dt.timedelta(hours=1) or (maintenant - d).total_seconds() > FENETRE_H * 3600:
+                fenetre = FENETRE_LENTE_H if theme in THEMES_LENTS else FENETRE_H
+                if d > maintenant + dt.timedelta(hours=1) or (maintenant - d).total_seconds() > fenetre * 3600:
                     continue
                 cle = re.sub(r'[?#].*$', '', it['lien']).rstrip('/')
                 a = articles.get(cle)

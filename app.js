@@ -20,6 +20,29 @@ const THEMES = {
   gastronomie:   { nom: 'Gastronomie', ess: 'bandes', chapo: "Les chefs, les tables et ce qu'on met dans nos assiettes.", perso: ['Mes envies', ['Recettes', 'Saison', 'Restaurants', 'Vins', 'Chefs', 'Pâtisserie']] },
   societe:       { nom: 'Société', ess: 'defile', chapo: 'Éducation, logement, travail : ce qui change dans nos vies.', perso: ['Mes sujets', ['Logement', 'Jeunesse', 'Éducation', 'Travail', 'Égalité', 'Justice']] },
 };
+// Thèmes sans « Près de chez toi »
+const SANS_PRES = new Set(['bourse', 'voyage', 'mode']);
+// Thèmes où l'on montre, sous les choix, une sélection d'articles qui leur correspondent
+const SELECTION = {
+  voyage: {
+    titre: 'Sur tes destinations',
+    mots: {
+      'Japon': 'japon japan tokyo kyoto osaka', 'Portugal': 'portugal lisbonne lisbon porto madere',
+      'Québec': 'quebec montreal gaspesie charlevoix', 'Grèce': 'grece greece greek athenes athens crete santorin',
+      'Mexique': 'mexique mexico cancun oaxaca', 'Islande': 'islande iceland reykjavik',
+      'Italie': 'italie italy rome venise venice florence sicile', 'Espagne': 'espagne spain madrid barcelone barcelona seville',
+    },
+  },
+  mode: {
+    titre: 'Sur tes univers',
+    mots: {
+      'Mode durable': 'durable sustainable seconde vintage upcycling recycle', 'Design': 'design designer mobilier furniture objet',
+      'Défilés': 'defile defiles fashion week runway collection', 'Créateurs': 'createur createurs creatrice couturier maison',
+      'Décoration': 'decoration deco interieur home', 'Beauté': 'beaute beauty maquillage parfum skincare',
+    },
+  },
+};
+
 const PAYS = {
   france: { nom: 'France', photo: 'img/france.jpg', chapo: 'Tout ce qui concerne la France.' },
   quebec: { nom: 'Québec', photo: 'img/quebec.jpg', chapo: 'Le Québec et le Canada.' },
@@ -241,6 +264,21 @@ function blocPerso(t) {
   return `<section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle(cfg[0])}
     <div class="envies" role="group" aria-label="${esc(cfg[0])}">${cfg[1].map(c => `<button type="button" data-envie="${esc(t)}" aria-pressed="${choisis.includes(c)}">${esc(c)}</button>`).join('')}</div></section>`;
 }
+function blocSelection(t) {
+  const cfg = SELECTION[t];
+  const choisis = envies(t);
+  const mots = choisis.flatMap(c => (cfg.mots[c] || norm(c)).split(' '));
+  if (!mots.length) return '';
+  const rx = new RegExp('\\b(' + mots.join('|') + ')', 'i');
+  const deja = vusPage.slice();
+  const liste = avecPhoto(D.fils.themes[t]).filter(x => rx.test(norm(x.titre + ' ' + x.resume)))
+    .filter(x => !deja.some(v => v.lien === x.lien || memeSujet(empreinte(x.titre), v.e))).slice(0, 4);
+  if (!liste.length) return `<section class="marge"><p class="vide">Pas d'article ces deux derniers jours sur ${esc(choisis.join(', '))}. Le fil juste en dessous montre tout le reste.</p></section>`;
+  liste.forEach(nouveau);
+  return `<section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle(cfg.titre, esc(choisis.join(' · ')))}
+    <div class="duo">${liste.map(x => carte(x, '')).join('')}</div></section>`;
+}
+
 function blocPres(items) {
   const deja = vusPage.slice();
   const miens = avecPhoto(items).filter(x => !deja.some(v => v.lien === x.lien || memeSujet(empreinte(x.titre), v.e))).filter(x => (x.pays || []).some(p => prefs.pays.includes(p)));
@@ -293,7 +331,7 @@ function pageTheme(t) {
   enregistrerFil(t, fil);
   const ess = (D.essentiel.themes || {})[t] || [];
   const titreEss = { culture: "L'essentiel de la culture", pop: "L'essentiel pop", environnement: "L'essentiel de l'environnement" }[t] || `L'essentiel ${t === 'sante' ? 'santé' : 'du jour'}`;
-  return { classe: `ecran page-theme theme-${t}`, html: entete(cfg.nom, cfg.chapo, t) + blocEssentiel(titreEss, ess, cfg.ess) + blocPerso(t) + blocPres(D.fils.themes[t] || []) + blocFil(t, fil, 'Au fil du thème') + `<p class="pied marge">Tu as fait le tour du thème ${esc(cfg.nom)} aujourd'hui.</p>` };
+  return { classe: `ecran page-theme theme-${t}`, html: entete(cfg.nom, cfg.chapo, t) + blocEssentiel(titreEss, ess, cfg.ess) + blocPerso(t) + (SELECTION[t] ? blocSelection(t) : '') + (SANS_PRES.has(t) ? '' : blocPres(D.fils.themes[t] || [])) + blocFil(t, fil, 'Au fil du thème') + `<p class="pied marge">Tu as fait le tour du thème ${esc(cfg.nom)} aujourd'hui.</p>` };
 }
 ['environnement', 'politique', 'pop', 'voyage', 'tech', 'sante', 'mode', 'gastronomie', 'societe'].forEach(t => { pages[t] = () => pageTheme(t); });
 
@@ -362,7 +400,6 @@ pages.bourse = () => {
       ${mes.length ? provenanceCours() : ''}
       </div></section>
     ${blocEssentiel("L'essentiel de la Bourse", (D.essentiel.themes || {}).bourse, 'defile')}
-    ${blocPres(D.fils.themes.bourse || [])}
     ${blocFil('bourse', fil, 'Au fil de la Bourse')}
     <p class="pied marge">Tu as fait le tour de la Bourse aujourd'hui.</p>` };
 };
@@ -527,6 +564,7 @@ document.addEventListener('click', e => {
     if (i >= 0) l.splice(i, 1); else l.push(c);
     prefs.envies[t] = l; sauver();
     envie.setAttribute('aria-pressed', i < 0);
+    if (SELECTION[t]) afficher(t, true);
     return;
   }
   const ajS = e.target.closest('[data-ajout-societe]');

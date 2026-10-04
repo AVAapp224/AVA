@@ -29,19 +29,19 @@ SOURCES = [
     ('lefigaro', 'Le Figaro', 'fr', 'fr', [
         (FIG.format('actualites'), None), (FIG.format('economie'), 'bourse'), (FIG.format('sport'), 'sport'),
         (FIG.format('culture'), 'culture'), (FIG.format('politique'), 'politique'),
-        (FIG.format('sciences'), 'tech'), (FIG.format('sante'), 'sante'),
+        (FIG.format('sciences'), 'tech'), (FIG.format('sante'), 'sante'), (FIG.format('voyages'), 'voyage'),
     ]),
     ('liberation', 'Libération', 'fr', 'fr', [('https://www.liberation.fr/arc/outboundfeeds/rss-all/collection/accueil-une/?outputType=xml', None)]),
     ('leparisien', 'Le Parisien', 'fr', 'fr', [('https://feeds.leparisien.fr/leparisien/rss', None)]),
     ('ouestfrance', 'Ouest-France', 'fr', 'fr', [('https://www.ouest-france.fr/rss/une', None)]),
-    ('20minutes', '20 Minutes', 'fr', 'fr', [('https://www.20minutes.fr/feeds/rss-une.xml', None)]),
+    ('20minutes', '20 Minutes', 'fr', 'fr', [('https://www.20minutes.fr/feeds/rss-une.xml', None), ('https://www.20minutes.fr/feeds/rss-voyage.xml', 'voyage')]),
     ('lacroix', 'La Croix', 'fr', 'fr', [('https://www.la-croix.com/RSS/UNIVERS', None)]),
     ('humanite', "L'Humanité", 'fr', 'fr', [('https://www.humanite.fr/feed', None)]),
     ('franceinfo', 'France Info', 'fr', 'fr', [
         ('https://www.francetvinfo.fr/titres.rss', None), (FTV.format('monde'), None),
         (FTV.format('economie'), 'bourse'), (FTV.format('sports'), 'sport'), (FTV.format('culture'), 'culture'),
         (FTV.format('politique'), 'politique'), (FTV.format('sante'), 'sante'), (FTV.format('sciences'), 'tech'),
-        (FTV.format('societe'), 'societe'), (FTV.format('internet'), 'tech'),
+        (FTV.format('societe'), 'societe'), (FTV.format('internet'), 'tech'), ('https://www.francetvinfo.fr/culture/mode.rss', 'mode'),
     ]),
     ('france24', 'France 24', 'intl', 'fr', [('https://www.france24.com/fr/rss', None)]),
     ('rfi', 'RFI', 'intl', 'fr', [('https://www.rfi.fr/fr/rss', None), ('https://www.rfi.fr/fr/afrique/rss', None)]),
@@ -50,6 +50,7 @@ SOURCES = [
     ('lobs', "L'Obs", 'fr', 'fr', [('https://www.nouvelobs.com/a-la-une/rss.xml', None)]),
     ('mediapart', 'Mediapart', 'fr', 'fr', [('https://www.mediapart.fr/articles/feed', None)]),
     ('lequipe', "L'Équipe", 'fr', 'fr', [('https://dwh.lequipe.fr/api/edito/rss?path=/', 'sport')]),
+    ('voguefr', 'Vogue France', 'fr', 'fr', [('https://www.vogue.fr/feed/rss', 'mode')]),
     ('tv5monde', 'TV5Monde', 'intl', 'fr', [('https://information.tv5monde.com/rss.xml', None)]),
 
     # ---------- Royaume-Uni ----------
@@ -85,6 +86,8 @@ SOURCES = [
     ('politico', 'Politico', 'us', 'en', [('https://rss.politico.com/politics-news.xml', 'politique')]),
     ('axios', 'Axios', 'us', 'en', [('https://api.axios.com/feed/', None)]),
     ('latimes', 'Los Angeles Times', 'us', 'en', [('https://www.latimes.com/world-nation/rss2.0.xml', None)]),
+    ('cntraveler', 'Condé Nast Traveler', 'us', 'en', [('https://www.cntraveler.com/feed/rss', 'voyage')]),
+    ('vogue', 'Vogue', 'us', 'en', [('https://www.vogue.com/feed/rss', 'mode')]),
     ('atlantic', 'The Atlantic', 'us', 'en', [('https://www.theatlantic.com/feed/all/', None)]),
 
     # ---------- Canada ----------
@@ -110,6 +113,8 @@ SOURCES = [
     ('globalnews', 'Global News', 'ca', 'en', [('https://globalnews.ca/feed/', None)]),
 
     # ---------- Autres pays ----------
+    ('designboom', 'Designboom', 'intl', 'en', [('https://www.designboom.com/feed/', 'mode')]),
+    ('dezeen', 'Dezeen', 'uk', 'en', [('https://www.dezeen.com/feed/', 'mode')]),
     ('rtbf', 'RTBF', 'be', 'fr', [('https://rss.rtbf.be/article/rss/highlight_rtbf_info.xml', None)]),
     ('lalibre', 'La Libre Belgique', 'be', 'fr', [('https://www.lalibre.be/arc/outboundfeeds/rss/?outputType=xml', None)]),
     ('letemps', 'Le Temps', 'ch', 'fr', [('https://www.letemps.ch/articles.rss', None)]),
