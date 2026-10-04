@@ -398,3 +398,17 @@ h3 strong,.fiche h2 strong{font-weight:700}
 .provenance strong{font-weight:600;color:var(--texte)}
 /* le pays de l'info */
 .voile .lieu{display:block;margin-bottom:3px;font-family:var(--ui);font-size:9.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;opacity:.6}
+/* Réglages */
+.reglages .bloc-reglage{display:flex;flex-direction:column;gap:12px}
+.reglages .envies button[aria-pressed="true"]{background:var(--texte);border-color:var(--texte);color:var(--fond);font-weight:500}
+.reglages .barre{margin-bottom:6px}
+.groupe-medias{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.groupe-medias h3{margin:0;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--doux)}
+.recherche-medias input{width:100%;min-height:44px;border-radius:12px;border:1px solid var(--filet);background:transparent;color:var(--texte);padding:0 14px;font:inherit;font-size:15px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.appris{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.appris div{border:1px solid var(--filet);border-radius:18px;padding:14px 16px}
+.appris h3{margin:0 0 6px;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--doux)}
+.appris p{margin:0;font-size:15px;line-height:1.6}
+.appris small{color:var(--doux);font-size:11px}
+a.icone{color:var(--texte)}

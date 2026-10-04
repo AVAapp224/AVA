@@ -67,7 +67,7 @@ const PREFS_DEFAUT = {
   couleur: 'encre', teinteCulture: 'bordeaux',
   pays: ['france', 'quebec'], themes: Object.keys(THEMES),
   sports: ['tennis', 'nautiques'], societes: ['MC.PA', 'SHOP.TO', 'AI.PA'],
-  envies: {}, cloches: {}, lectures: {},
+  envies: {}, cloches: {}, lectures: {}, medias: [], habitudes: null,
 };
 let prefs = chargerPrefs();
 function chargerPrefs() {
@@ -155,7 +155,7 @@ function ligneArticle(a) {
 /* ------------------------------------------------------------------ cartes */
 function lireChez(x) {
   const sources = x.sources || [{ nom: x.source, lien: x.lien }];
-  return `<div class="lire"><span>Lire chez</span>${sources.slice(0, 3).map(s => `<a href="${esc(s.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.theme || '')}">${esc(s.nom)}</a>`).join('')}${sources.length > 3 ? `<a href="#" data-ouvrir="${esc(x.id)}">+${sources.length - 3}</a>` : ''}</div>`;
+  return `<div class="lire"><span>Lire chez</span>${sources.slice(0, 3).map(s => `<a href="${esc(s.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.id)}">${esc(s.nom)}</a>`).join('')}${sources.length > 3 ? `<a href="#" data-ouvrir="${esc(x.id)}">+${sources.length - 3}</a>` : ''}</div>`;
 }
 function carteUne(x) {
   inscrire(x);
@@ -202,25 +202,79 @@ function mosaique(items) {
   return html;
 }
 
-/* ------------------------------------------------------------------ algorithme côté téléphone : ce que tu lis le plus */
-function ordonner(items, motsBonus) {
-  const lect = prefs.lectures || {};
-  const total = Object.values(lect).reduce((a, b) => a + b, 0) || 1;
-  const bonus = motsBonus && motsBonus.length ? new RegExp('\\b(' + motsBonus.map(m => norm(m).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'i') : null;
-  return items.map(x => {
-    let s = new Date(x.date).getTime();
-    s += Math.min(6, (lect[x.theme] || 0) / total * 12) * 3600e3;        // jusqu'à 6 h d'avance pour tes thèmes préférés
-    if (bonus && bonus.test(norm(x.titre + ' ' + x.resume))) s += 4 * 3600e3;
-    if (x.image) s += 0.5 * 3600e3;
-    if (x.gros_plan) s -= 8 * 3600e3;                                     // les gros plans de visages descendent dans le fil
-    if (x.langue === 'fr') s += 1.5 * 3600e3;                            // le français passe un peu devant
-    return [s, x];
-  }).sort((a, b) => b[0] - a[0]).map(p => p[1]);
+/* ------------------------------------------------------------------ l'algorithme personnel (tout reste sur ce téléphone)
+   AVA compare, pour chaque pays, média et thème, ce que tu OUVRES à ce que tu VOIS passer.
+   Ce que tu ouvres souvent remonte ; ce que tu fais défiler sans jamais l'ouvrir descend peu à peu. */
+function habitudes() {
+  if (!prefs.habitudes) prefs.habitudes = { vues: { lieu: {}, source: {}, theme: {} }, ouverts: { lieu: {}, source: {}, theme: {} } };
+  // reprise des anciennes lectures par thème
+  if (prefs.lectures && Object.keys(prefs.lectures).length && !prefs.habitudesMigrees) {
+    Object.entries(prefs.lectures).forEach(([t, n]) => { prefs.habitudes.ouverts.theme[t] = (prefs.habitudes.ouverts.theme[t] || 0) + n; });
+    prefs.habitudesMigrees = true;
+  }
+  return prefs.habitudes;
 }
-function lu(theme) {
-  if (!theme) return;
-  prefs.lectures[theme] = (prefs.lectures[theme] || 0) + 1;
+function noter(x, quoi) {
+  if (!x) return;
+  const h = habitudes()[quoi];
+  [['lieu', x.lieu], ['source', x.source], ['theme', x.theme]].forEach(([type, cle]) => {
+    if (cle) h[type][cle] = (h[type][cle] || 0) + 1;
+  });
   sauver();
+}
+// affinité : au-dessus de 0, tu ouvres plus que la moyenne ; en dessous, moins. Bornée pour ne jamais tout cacher.
+function affinite(type, cle) {
+  if (!cle) return 0;
+  const h = habitudes();
+  const o = h.ouverts[type][cle] || 0, v = h.vues[type][cle] || 0;
+  const O = Object.values(h.ouverts[type]).reduce((a, b) => a + b, 0);
+  const V = Object.values(h.vues[type]).reduce((a, b) => a + b, 0);
+  if (V < 30) return 0;                       // pas encore assez d'observations pour juger
+  const taux = (o + 1) / (v + 8), moyen = (O + 1) / (V + 8);
+  return Math.max(-1.5, Math.min(1.5, Math.log2(taux / moyen)));
+}
+const favori = x => (prefs.medias || []).includes(x.source);
+
+/* classe une liste pour toi : importance de l'info + tes habitudes + tes médias préférés, puis équilibre les pays et les médias */
+function classerPerso(items, options = {}) {
+  const bonus = options.mots && options.mots.length ? new RegExp('\\b(' + options.mots.map(m => norm(m).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'i') : null;
+  const notes = items.map((x, i) => {
+    let s = Math.log((x.imp || 0.5) + 0.2);
+    s += 0.7 * affinite('lieu', x.lieu) + 0.6 * affinite('source', x.source) + 0.35 * affinite('theme', x.theme);
+    if (favori(x)) s += 1;
+    if (bonus && bonus.test(norm(x.titre + ' ' + x.resume))) s += 0.8;
+    if (x.gros_plan) s -= 1.2;                          // les gros plans de visages descendent
+    if (options.recence) s -= (Date.now() - new Date(x.date)) / 3600e3 / 24;
+    else s -= i * 0.01;                                 // l'ordre mondial calculé par AVA départage
+    return { x, s };
+  }).sort((a, b) => b.s - a.s);
+  // équilibre : pas deux fois le même pays sur 3 articles d'affilée, ni le même média sur 2
+  const out = [], reste = notes.slice();
+  while (reste.length) {
+    const recents = out.slice(-3);
+    let k = reste.findIndex(({ x }) => !(x.lieu && recents.filter(y => y.lieu === x.lieu).length >= 1) && !(recents.slice(-2).some(y => y.source === x.source)));
+    if (k < 0) k = 0;
+    out.push(reste.splice(k, 1)[0].x);
+  }
+  return out;
+}
+
+/* ce que tu regardes vraiment : un article compte comme « vu » s'il reste au moins 1 seconde à l'écran */
+let observateur;
+const dejaVus = new Set();
+function observerVues() {
+  if (!('IntersectionObserver' in window)) return;
+  if (observateur) observateur.disconnect();
+  const minuteurs = new Map();
+  observateur = new IntersectionObserver(entrees => {
+    entrees.forEach(e => {
+      const id = e.target.dataset.ouvrir;
+      if (e.isIntersecting && e.intersectionRatio >= 0.6) {
+        if (!dejaVus.has(id) && !minuteurs.has(id)) minuteurs.set(id, setTimeout(() => { dejaVus.add(id); noter(registre.get(id), 'vues'); }, 1000));
+      } else if (minuteurs.has(id)) { clearTimeout(minuteurs.get(id)); minuteurs.delete(id); }
+    });
+  }, { threshold: [0, 0.6] });
+  document.querySelectorAll('#vue [data-ouvrir]').forEach(el => observateur.observe(el));
 }
 
 /* ------------------------------------------------------------------ blocs de page */
@@ -308,14 +362,14 @@ const pages = {};
 
 pages.accueil = () => {
   const e = D.essentiel;
-  const fil = ordonner(D.fils.accueil);
+  const fil = classerPerso(D.fils.accueil);
   enregistrerFil('accueil', fil);
   const c = D.compte;
   return { classe: 'ecran accueil', theme: prefs.couleur, html: `
     <header class="entete marge">
       <div class="ligne-haut"><span>${dateDuJour()}</span>
-        <button class="icone" type="button" aria-label="Réglages" data-bientot="Les réglages arrivent bientôt.">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 8h10M18 8h2M4 16h2M10 16h10"/><circle cx="16" cy="8" r="2"/><circle cx="8" cy="16" r="2"/></svg></button></div>
+        <a class="icone" href="#reglages" aria-label="Réglages">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 8h10M18 8h2M4 16h2M10 16h10"/><circle cx="16" cy="8" r="2"/><circle cx="8" cy="16" r="2"/></svg></a></div>
       <h1 class="titre-app nom-app">AVA</h1>
       <span class="devise">All Views Available</span>
       <span class="maj" id="maj">Mis à jour ${ilYa(D.maj)} · ${D.nb_sources} médias</span>
@@ -331,7 +385,7 @@ pages.accueil = () => {
 
 function pageTheme(t) {
   const cfg = THEMES[t];
-  const fil = ordonner(D.fils.themes[t] || [], envies(t));
+  const fil = classerPerso(D.fils.themes[t] || [], { recence: true, mots: envies(t) });
   enregistrerFil(t, fil);
   const ess = (D.essentiel.themes || {})[t] || [];
   const titreEss = { culture: "L'essentiel de la culture", pop: "L'essentiel pop", environnement: "L'essentiel de l'environnement" }[t] || `L'essentiel ${t === 'sante' ? 'santé' : 'du jour'}`;
@@ -370,7 +424,7 @@ function provenanceCours() {
 }
 
 pages.bourse = () => {
-  const fil = ordonner(D.fils.themes.bourse || []);
+  const fil = classerPerso(D.fils.themes.bourse || [], { recence: true });
   enregistrerFil('bourse', fil);
   const marches = D.marches || [];
   const mes = (D.societes || []).filter(s => prefs.societes.includes(s.symbole));
@@ -412,7 +466,7 @@ pages.bourse = () => {
 function rxSport(id) { return new RegExp('\\b(' + SPORTS[id][2].split(' ').join('|') + ')', 'i'); }
 pages.sport = () => {
   const brut = D.fils.themes.sport || [];
-  const fil = ordonner(brut, prefs.sports.flatMap(s => SPORTS[s][2].split(' ')));
+  const fil = classerPerso(brut, { recence: true, mots: prefs.sports.flatMap(s => SPORTS[s][2].split(' ')) });
   enregistrerFil('sport', fil);
   const principal = prefs.sports[0];
   const tete = principal ? `
@@ -444,7 +498,7 @@ pages.sport = () => {
 /* --- Pays */
 function pagePays(p) {
   const cfg = PAYS[p];
-  const fil = ordonner(D.fils.pays[p] || []);
+  const fil = classerPerso(D.fils.pays[p] || [], { recence: true });
   enregistrerFil('pays-' + p, fil);
   return { classe: 'ecran page-pays', html: `
     <header class="bassin"><img src="${cfg.photo}" alt="">
@@ -457,6 +511,79 @@ function pagePays(p) {
 }
 pages['pays-france'] = () => pagePays('france');
 pages['pays-quebec'] = () => pagePays('quebec');
+
+/* ------------------------------------------------------------------ Réglages */
+const NOMS_PAYS_MEDIAS = { fr: 'France', ca: 'Canada', uk: 'Royaume-Uni', us: 'États-Unis', intl: 'International', be: 'Belgique', ch: 'Suisse',
+  de: 'Allemagne', es: 'Espagne', it: 'Italie', ua: 'Ukraine', in: 'Inde', sg: 'Singapour', th: 'Thaïlande', jp: 'Japon', hk: 'Hong Kong',
+  au: 'Australie', il: 'Israël', za: 'Afrique du Sud', ng: 'Nigeria', afr: 'Afrique', ar: 'Argentine', br: 'Brésil' };
+
+function appris() {
+  // ce qu'AVA a compris de tes habitudes, pour que tu le voies (transparence)
+  const h = habitudes();
+  const liste = type => Object.keys(Object.assign({}, h.vues[type], h.ouverts[type]))
+    .map(cle => [cle, affinite(type, cle), h.ouverts[type][cle] || 0]).filter(([, a]) => a !== 0);
+  const plus = [], moins = [];
+  [['lieu', 'pays'], ['source', 'média'], ['theme', 'thème']].forEach(([type, mot]) => {
+    liste(type).forEach(([cle, a, n]) => {
+      const nom = type === 'theme' ? (THEMES[cle] || {}).nom || cle : cle;
+      if (a >= 0.4) plus.push([a, `${nom} <small>(${mot})</small>`]);
+      if (a <= -0.4) moins.push([a, `${nom} <small>(${mot})</small>`]);
+    });
+  });
+  plus.sort((a, b) => b[0] - a[0]); moins.sort((a, b) => a[0] - b[0]);
+  const total = Object.values(h.vues.source).reduce((a, b) => a + b, 0);
+  return { plus: plus.slice(0, 8).map(p => p[1]), moins: moins.slice(0, 8).map(p => p[1]), total };
+}
+
+pages.reglages = () => {
+  const groupes = {};
+  (D.medias || []).forEach(m => { (groupes[m.pays] = groupes[m.pays] || []).push(m.nom); });
+  const ordre = ['fr', 'ca', 'uk', 'us', 'intl', 'be', 'ch', 'de', 'es', 'it', 'ua', 'in', 'jp', 'hk', 'sg', 'th', 'au', 'il', 'za', 'ng', 'afr', 'ar', 'br'];
+  const pays = Object.keys(groupes).sort((a, b) => (ordre.indexOf(a) + 99) % 99 - (ordre.indexOf(b) + 99) % 99);
+  const a = appris();
+  const pastille = (attr, val, actif, texte) => `<button type="button" ${attr}="${esc(val)}" aria-pressed="${actif}">${esc(texte)}</button>`;
+  return { classe: 'ecran accueil reglages', theme: prefs.couleur, html: `
+    <header class="entete marge">
+      <div class="barre">${RETOUR}</div>
+      <h1 class="titre-app">Réglages</h1>
+      <p class="chapo-theme">Tout ce que tu choisis ici reste sur ton téléphone.</p>
+      <div class="filet"></div></header>
+
+    <section class="marge bloc-reglage">${libelle('Couleur de l\'accueil')}
+      <div class="envies">${[['encre', 'Bleu encre'], ['papier', 'Papier'], ['sapin', 'Vert sapin']].map(([v, t]) => pastille('data-couleur', v, prefs.couleur === v, t)).join('')}</div></section>
+
+    <section class="marge bloc-reglage">${libelle('Mes pays')}
+      <div class="envies">${Object.entries(PAYS).map(([k, p]) => pastille('data-pays', k, prefs.pays.includes(k), p.nom)).join('')}</div></section>
+
+    <section class="marge bloc-reglage">${libelle('Mes médias préférés', `<span id="nb-medias">${(prefs.medias || []).length} choisi${(prefs.medias || []).length > 1 ? 's' : ''}</span>`)}
+      <p class="precision">Ils passent devant dans ton fil. Les autres médias restent là, juste un peu plus bas.</p>
+      <label class="recherche-medias"><span class="sr">Chercher un média</span><input id="cherche-media" type="search" placeholder="Chercher un média…" autocomplete="off"></label>
+      ${pays.map(p => `<div class="groupe-medias" data-groupe><h3>${esc(NOMS_PAYS_MEDIAS[p] || p)}</h3>
+        <div class="envies">${groupes[p].map(n => pastille('data-media', n, (prefs.medias || []).includes(n), n)).join('')}</div></div>`).join('')}
+    </section>
+
+    <section class="marge bloc-reglage">${libelle('Ce qu\'AVA a appris de toi')}
+      ${a.total < 30 ? `<p class="precision">AVA apprend en te regardant lire : encore quelques visites et tu verras ici ce que tu préfères.</p>` : `
+      <div class="appris"><div><h3>Tu lis plus</h3><p>${a.plus.join(' · ') || '—'}</p></div>
+      <div><h3>Tu lis moins</h3><p>${a.moins.join(' · ') || '—'}</p></div></div>`}
+      <button type="button" class="voir-plus" id="effacer-habitudes">Effacer mes habitudes de lecture</button>
+    </section>
+    <p class="pied marge">AVA lit ${D.nb_sources} médias. Ton fil reste mondial : tes habitudes changent seulement l'ordre et le dosage.</p>` };
+};
+
+function activerReglages() {
+  const champ = $('#cherche-media');
+  if (champ) champ.addEventListener('input', () => {
+    const q = norm(champ.value.trim());
+    document.querySelectorAll('[data-groupe]').forEach(g => {
+      let visibles = 0;
+      g.querySelectorAll('[data-media]').forEach(b => { const ok = !q || norm(b.textContent).includes(q); b.hidden = !ok; if (ok) visibles++; });
+      g.hidden = !visibles;
+    });
+  });
+  const eff = $('#effacer-habitudes');
+  if (eff) eff.addEventListener('click', () => { prefs.habitudes = null; prefs.lectures = {}; habitudes(); sauver(); afficher('reglages', true); montrer('Habitudes effacées. AVA recommence à apprendre.'); });
+}
 
 /* ------------------------------------------------------------------ affichage */
 let vueCourante = 'accueil';
@@ -473,6 +600,8 @@ function afficher(nom, garderPosition) {
   document.querySelector('meta[name="theme-color"]').content = getComputedStyle(vue).getPropertyValue('--fond').trim() || '#14213A';
   if (!garderPosition) window.scrollTo(0, 0);
   activer();
+  observerVues();
+  if (nom === 'reglages') activerReglages();
 }
 window.addEventListener('hashchange', () => afficher(location.hash.slice(1) || 'accueil'));
 
@@ -497,6 +626,7 @@ function activer() {
 function ouvrirFiche(id) {
   const x = registre.get(id);
   if (!x) return;
+  noter(x, 'ouverts');
   const autres = x.sources ? x.sources.slice(1) : (x.autres || []);
   const principal = x.sources ? x.sources[0] : { nom: x.source, lien: x.lien };
   const fond = document.createElement('div');
@@ -507,8 +637,8 @@ function ouvrirFiche(id) {
     <span class="meta">${esc(principal.nom)} · ${esc(x.rubrique || '')}${x.lieu ? ' · ' + esc(x.lieu) : ''} · ${ilYa(x.date)}</span>
     <h2>${titre(x)}</h2>
     ${x.resume ? `<p>${esc(x.resume)}</p>` : ''}
-    <a class="principal" href="${esc(principal.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.theme || '')}">Lire chez ${esc(principal.nom)} ${FLECHE}</a>
-    ${autres.length ? `<h3>Ils en parlent aussi</h3>${autres.map(s => `<a class="autre" href="${esc(s.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.theme || '')}"><span>${esc(s.nom)}</span><b>${esc(s.titre || x.titre)}</b></a>`).join('')}` : ''}
+    <a class="principal" href="${esc(principal.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.id)}">Lire chez ${esc(principal.nom)} ${FLECHE}</a>
+    ${autres.length ? `<h3>Ils en parlent aussi</h3>${autres.map(s => `<a class="autre" href="${esc(s.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.id)}"><span>${esc(s.nom)}</span><b>${esc(s.titre || x.titre)}</b></a>`).join('')}` : ''}
     <button type="button" class="fermer">Fermer</button></div>`;
   document.body.appendChild(fond);
   document.body.style.overflow = 'hidden';
@@ -521,7 +651,7 @@ function ouvrirFiche(id) {
 /* ------------------------------------------------------------------ clics */
 document.addEventListener('click', e => {
   const lien = e.target.closest('a[data-lu]');
-  if (lien) { lu(lien.dataset.lu); return; }
+  if (lien) { noter(registre.get(lien.dataset.lu), 'ouverts'); return; }
   const ouvrir = e.target.closest('[data-ouvrir]');
   if (ouvrir && !e.target.closest('.lire a:not([data-ouvrir])')) {
     if (ouvrir.closest('.pile-culture') && glisseRecente) return;
@@ -534,6 +664,7 @@ document.addEventListener('click', e => {
     zone.dataset.n = n;
     zone.innerHTML = mosaique(filsAffiches[cle].slice(0, n));
     if (n >= filsAffiches[cle].length) plus.remove();
+    observerVues();
     return;
   }
   const bientot = e.target.closest('[data-bientot]');
@@ -569,6 +700,22 @@ document.addEventListener('click', e => {
     prefs.envies[t] = l; sauver();
     envie.setAttribute('aria-pressed', i < 0);
     if (SELECTION[t]) afficher(t, true);
+    return;
+  }
+  const couleur = e.target.closest('[data-couleur]');
+  if (couleur) { prefs.couleur = couleur.dataset.couleur; sauver(); afficher('reglages', true); return; }
+  const paysB = e.target.closest('[data-pays]');
+  if (paysB) {
+    const k = paysB.dataset.pays;
+    prefs.pays = prefs.pays.includes(k) ? prefs.pays.filter(p => p !== k) : prefs.pays.concat(k);
+    sauver(); paysB.setAttribute('aria-pressed', prefs.pays.includes(k)); return;
+  }
+  const media = e.target.closest('[data-media]');
+  if (media) {
+    const n = media.dataset.media;
+    prefs.medias = (prefs.medias || []).includes(n) ? prefs.medias.filter(m => m !== n) : (prefs.medias || []).concat(n);
+    sauver(); media.setAttribute('aria-pressed', prefs.medias.includes(n));
+    const c = $('#nb-medias'); if (c) c.textContent = `${prefs.medias.length} choisi${prefs.medias.length > 1 ? 's' : ''}`;
     return;
   }
   const ajS = e.target.closest('[data-ajout-societe]');
@@ -661,10 +808,11 @@ async function demarrer() {
         const src = cle === 'accueil' ? D.fils.accueil : cle.startsWith('pays-') ? D.fils.pays[cle.slice(5)] : D.fils.themes[cle];
         if (!src) return;
         const deja = vusPage.filter(v => !filsAffiches[cle].some(x => x.lien === v.lien));
-        filsAffiches[cle] = ordonner(src).filter(x => !deja.some(v => v.lien === x.lien || memeSujet(empreinte(x.titre), v.e)));
+        filsAffiches[cle] = classerPerso(src, cle === 'accueil' ? {} : { recence: true }).filter(x => !deja.some(v => v.lien === x.lien || memeSujet(empreinte(x.titre), v.e)));
         zone.innerHTML = mosaique(filsAffiches[cle].slice(0, +zone.dataset.n));
       });
       const m = $('#maj'); if (m) m.textContent = `Mis à jour ${ilYa(D.maj)} · ${D.nb_sources} médias`;
+      observerVues();
     } catch (e) { /* on réessaiera au prochain tour */ }
   }, RAFRAICHIR_MIN * 60000);
 }

@@ -601,7 +601,7 @@ def carte(a):
     images = [i for i in images if i][:4]
     return dict(id=a['id'], titre=a['titre'], resume=a['resume'], image=images[0] if images else None, images=images, gras=gras(a['titre']),
                 lien=a['lien'], source=a['source'], date=iso(a['date']), lieu=a.get('lieu'), theme=a['theme'], rubrique=THEMES.get(a['theme'], 'Actualité'), pays=a['pays'],
-                langue=a['langue'], autres=autres[:6])
+                langue=a['langue'], autres=autres[:6], imp=round(importance_monde(g), 3) if g else 0.5)
 
 # les noms de pays eux-mêmes (pas les villes ni les dirigeants) : « Chine », « China », « chinois »…
 NOMS_PAYS = {w for nom, mots in LIEUX.items() for w in mots.split() if w[:4] == norm(nom).replace(' ', '')[:4]} | set("""china chinese japan japanese germany german spain spanish
@@ -657,7 +657,9 @@ def importance_monde(g):
     if AMPLEUR.search(norm(' '.join(x['titre'] for x in arts[:3]))):
         s *= 2.2                        # « des centaines de banques », « des milliers de morts », « historique »…
     age = (dt.datetime.now(dt.timezone.utc) - max(x['date'] for x in arts)).total_seconds() / 3600
-    return s * math.exp(-age / 20)
+    # plus un sujet est important, plus il reste longtemps : de 18 h pour une petite info à près de 3 jours pour un très gros sujet
+    duree = 18 * (1 + 0.25 * min(6, len(medias) - 1)) * (1.5 if AMPLEUR.search(norm(arts[0]['titre'])) else 1) * (1.2 if medias & REFERENCE else 1)
+    return s * math.exp(-age / duree)
 
 AMPLEUR = re.compile(r"\b(centaines|milliers|millions|milliards|hundreds|thousands|millions|billions|historique|historic|sans precedent|unprecedented|crise|crisis|seisme|earthquake|tsunami|coup d'etat|famine|epidemie|pandemic|genocide|faillite|faillites|bankruptcy|collapse|effondrement|krach)\b")
 # pays dont nos médias parlent déjà beaucoup : le « reste du monde » a ses places réservées dans la vitrine
@@ -1064,6 +1066,7 @@ def lancer():
         cours_source='Yahoo Finance', cours_releve=iso(dt.datetime.fromtimestamp(getattr(bourse, 'releve', None) or time.time(), dt.timezone.utc)),
         compte={'themes': {t: len(fils['themes'][t]) for t in THEMES}, 'pays': {p: len(fils['pays'][p]) for p in PAYS_MOTS}},
         sources=sorted(n for n, v in etats.items() if v['ok']),
+        medias=[{'nom': nom, 'pays': pays} for sid, nom, pays, langue, flux in SOURCES if etats.get(nom, {}).get('ok')],
     )
     ecrire_json(os.path.join(DONNEES, 'actus.json'), sortie)
     # ménage : on ne garde que les 7 derniers jours d'essentiels
