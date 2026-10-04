@@ -629,25 +629,28 @@ function ouvrirGuide() {
         <h1 class="guide-nom">AVA</h1>
         <span class="devise">All Views Available</span>
         <p>L'actualité du monde entier, choisie parmi plus de ${Math.floor((D.nb_sources || 80) / 10) * 10} médias reconnus.</p>
-        <p>L'essentiel en quelques minutes, sans le bruit ni les fausses infos.</p>
+        <p>L'essentiel en quelques minutes, pour suivre tout ce dont on parle.</p>
       </section>
       <section class="guide-page">
         <span class="guide-sur">Chaque matin</span>
         <h2>Les 5 infos du jour</h2>
-        <p>À 6 h, AVA choisit les 5 infos dont tout le monde parle, dans 5 pays différents. De quoi être à jour avant ton café.</p>
+        <p>Chaque matin, AVA réunit les 5 informations à connaître, venues des quatre coins du monde.</p>
+        <p>Une notification, cinq titres, et ta journée commence en étant à jour.</p>
         <button type="button" class="guide-action" id="guide-notif">${prefs.notifMatin ? 'Notification du matin activée' : 'Recevoir les 5 infos chaque matin'}</button>
         <p class="guide-note" id="guide-note"></p>
       </section>
       <section class="guide-page">
         <span class="guide-sur">Tes pays</span>
         <h2>Quels pays veux-tu suivre&nbsp;?</h2>
-        <p>Tu auras une page pour chacun. Tu pourras changer ça quand tu veux dans les réglages.</p>
+        <p>Chaque pays choisi a sa propre page, à part de l'accueil. Tu y retrouves toute son actualité.</p>
+        <p class="guide-note">Tu pourras en ajouter ou en retirer à tout moment dans les réglages.</p>
         <div class="envies">${pastilles(paysProposes().map(p => [p, nomPays(p)]), choixPays, 'data-guide-pays')}</div>
       </section>
       <section class="guide-page">
         <span class="guide-sur">Tes thèmes</span>
         <h2>Qu'est-ce qui t'intéresse&nbsp;?</h2>
-        <p>Choisis autant de thèmes que tu veux. AVA apprendra aussi en te regardant lire.</p>
+        <p>Chaque thème a lui aussi sa propre page, accessible depuis l'accueil. L'accueil, lui, reste une vue du monde entier.</p>
+        <p class="guide-note">Choisis-en autant que tu veux.</p>
         <div class="envies">${pastilles(Object.entries(THEMES).map(([k, t]) => [k, t.nom]), choixThemes, 'data-guide-theme')}</div>
       </section>
     </div>

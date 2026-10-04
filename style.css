@@ -433,3 +433,10 @@ a.icone{color:var(--texte)}
 .guide-points span{width:7px;height:7px;border-radius:50%;background:var(--filet);transition:all .25s ease}
 .guide-points span.on{width:22px;border-radius:4px;background:var(--texte)}
 .guide-suivant{min-height:52px;padding:0 28px;border-radius:999px;border:0;background:var(--texte);color:var(--fond);font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+/* guide : tout est centré sur chaque page */
+.guide-page{align-items:center;text-align:center}
+.guide-page > *{margin-inline:auto}
+.guide-page .envies{justify-content:center}
+.guide-action{align-self:center}
+.guide-page .devise{margin-top:-4px}
+.guide-sur{margin-bottom:-4px}
