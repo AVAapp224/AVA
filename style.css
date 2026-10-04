@@ -396,3 +396,5 @@ h3 strong,.fiche h2 strong{font-weight:700}
 /* transparence : provenance des chiffres */
 .provenance{margin:10px 0 0;font-size:11.5px;line-height:1.5;color:var(--doux)}
 .provenance strong{font-weight:600;color:var(--texte)}
+/* le pays de l'info */
+.voile .lieu{display:block;margin-bottom:3px;font-family:var(--ui);font-size:9.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;opacity:.6}

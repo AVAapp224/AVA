@@ -104,6 +104,10 @@ function montrer(msg) {
   minuteurToast = setTimeout(() => t.classList.remove('on'), 2400);
 }
 
+/* le pays dont parle l'article, à côté de la rubrique */
+const avecLieu = (rubrique, x) => esc(rubrique) + (x.lieu && x.lieu !== rubrique ? ' · ' + esc(x.lieu) : '');
+const lieu = x => x.lieu ? `<span class="lieu">${esc(x.lieu)}</span>` : '';
+
 /* le titre avec ses mots-clés en gras */
 function titre(x) {
   let t = esc(x.titre);
@@ -145,7 +149,7 @@ function nouveau(x) {
 const avecPhoto = l => (l || []).filter(x => x && x.image);
 function ligneArticle(a) {
   inscrire(a);
-  return `<a href="${esc(a.lien)}" class="ligne-article" data-ouvrir="${esc(a.id)}"><span class="vignette">${photo(a, '', 160)}</span><span><span>${esc(a.source)} · ${ilYa(a.date)}</span><b>${esc(a.titre)}</b></span></a>`;
+  return `<a href="${esc(a.lien)}" class="ligne-article" data-ouvrir="${esc(a.id)}"><span class="vignette">${photo(a, '', 160)}</span><span><span>${esc(a.source)}${a.lieu ? ' · ' + esc(a.lieu) : ''} · ${ilYa(a.date)}</span><b>${esc(a.titre)}</b></span></a>`;
 }
 
 /* ------------------------------------------------------------------ cartes */
@@ -156,19 +160,19 @@ function lireChez(x) {
 function carteUne(x) {
   inscrire(x);
   return `<article class="une" data-ouvrir="${esc(x.id)}">${photo(x, x.titre)}
-    <div class="voile"><span class="rubrique">${esc(x.rubrique)}</span><h3>${titre(x)}</h3>${lireChez(x)}</div></article>`;
+    <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3>${lireChez(x)}</div></article>`;
 }
 function bande(x) {
   inscrire(x);
   return `<a href="${esc(x.lien)}" class="bande" data-ouvrir="${esc(x.id)}">${photo(x, x.titre)}
     <span class="source">${esc(x.source)}</span>${nbAutres(x)}
-    <div class="voile"><span class="rubrique">${esc(x.rubrique)}</span><h3>${titre(x)}</h3></div></a>`;
+    <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3></div></a>`;
 }
 function affiche(x) {
   inscrire(x);
   return `<a href="${esc(x.lien)}" class="affiche" data-ouvrir="${esc(x.id)}">${photo(x, x.titre)}
     <span class="source">${esc(x.source)}</span>
-    <div class="voile"><span class="rubrique">${esc(x.rubrique)}</span><h3>${titre(x)}</h3></div></a>`;
+    <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3></div></a>`;
 }
 function nbAutres(x) {
   const n = (x.sources ? x.sources.length - 1 : (x.autres || []).length);
@@ -178,7 +182,7 @@ function carte(x, taille, etiquette) {
   inscrire(x);
   return `<a href="${esc(x.lien)}" class="carte ${taille}" data-ouvrir="${esc(x.id)}">${photo(x, x.titre)}
     <span class="source">${esc(x.source)}</span>${etiquette ? `<span class="pays-tag">${esc(etiquette)}</span>` : nbAutres(x)}
-    <div class="voile"><h3>${titre(x)}</h3></div></a>`;
+    <div class="voile">${lieu(x)}<h3>${titre(x)}</h3></div></a>`;
 }
 
 /* la mosaïque du fil, d'après le croquis : une grande en largeur, puis une verticale et deux petites (en miroir une fois sur deux) */
@@ -500,7 +504,7 @@ function ouvrirFiche(id) {
   fond.innerHTML = `<div class="fiche" role="dialog" aria-modal="true" aria-label="${esc(x.titre)}">
     <span class="poignee" aria-hidden="true"></span>
     <div class="photo"><img src="${esc(reduite(x.image, 900))}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${esc(x.image)}'"></div>
-    <span class="meta">${esc(principal.nom)} · ${esc(x.rubrique || '')} · ${ilYa(x.date)}</span>
+    <span class="meta">${esc(principal.nom)} · ${esc(x.rubrique || '')}${x.lieu ? ' · ' + esc(x.lieu) : ''} · ${ilYa(x.date)}</span>
     <h2>${titre(x)}</h2>
     ${x.resume ? `<p>${esc(x.resume)}</p>` : ''}
     <a class="principal" href="${esc(principal.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.theme || '')}">Lire chez ${esc(principal.nom)} ${FLECHE}</a>

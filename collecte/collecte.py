@@ -25,6 +25,7 @@ import xml.etree.ElementTree as ET
 from zoneinfo import ZoneInfo
 
 from sources import SOURCES, MARCHES, SOCIETES
+from lieux import LIEUX
 
 ICI = os.path.dirname(os.path.abspath(__file__))
 DONNEES = os.path.join(ICI, '..', 'donnees')
@@ -47,15 +48,15 @@ THEMES = {
 # ---------------------------------------------------------------- mots-clés
 MOTS = {
     'bourse': "bourse marches financiers cac wall street nasdaq dow jones actionnaires action actions inflation taux d'interet banque centrale bce fed reserve federale economie economique croissance pib recession entreprise entreprises benefice resultats chiffre d'affaires petrole baril opep dollar euro crypto bitcoin investisseurs droits de douane tarifs dette budget emploi stocks shares market markets economy inflation interest rates earnings oil investors tariffs trade gdp profit revenue",
-    'sport': "football foot ligue 1 match matchs tennis rugby cyclisme tour de france jeux olympiques olympique nba nhl lnh hockey basket basketball formule 1 f1 roland-garros coupe du monde athletisme natation ski mercato sport sports championnat league goal coach entraineur selectionneur psg canadiens marathon golf boxe voile regate surf escalade judo handball volley medaille champion championne",
+    'sport': "football foot ligue 1 matchs tennis rugby cyclisme cycliste jeux olympiques olympique nba nhl lnh hockey basket basketball formule 1 f1 roland-garros athletisme natation ski mercato sport sports championnat league goal coach entraineur selectionneur psg canadiens marathon golf boxe voile regate surf escalade judo handball volley medaille champion championne",
     'culture': "exposition musee livre livres roman romanciere romancier ecrivain ecrivaine theatre opera peinture peintre patrimoine litterature goncourt danse ballet sculpture galerie bibliotheque poesie philosophie architecture photographe photographie museum novel author exhibition gallery painter poet",
-    'pop': "film films cinema serie series netflix disney star stars chanteur chanteuse rappeur rappeuse album clip acteur actrice oscars cesar festival box-office streaming tiktok influenceur influenceuse people celebrity singer movie movies tv show rapper hollywood concert tournee taylor swift beyonce spotify grammy emmy musique",
-    'environnement': "climat climatique rechauffement biodiversite pollution ecologie ecologique environnement co2 carbone emissions renouvelable eolien eoliennes solaire secheresse canicule inondation inondations ouragan glacier glaciers ocean oceans cop deforestation espece especes faune flore planete climate warming emissions wildfire wildfires species planet drought flood floods hurricane renewable",
-    'politique': "gouvernement ministre ministres president presidente elysee assemblee senat depute deputes deputee election elections electoral vote parti macron parlement loi reforme opposition trump congres congress senate parliament minister campaign carney poilievre legault ottawa conservateurs liberaux democrates republicains diplomatie sommet sanctions referendum coalition",
-    'voyage': "voyage voyages tourisme touriste touristes vacances destination destinations aeroport compagnie aerienne vols hotel hotels croisiere travel tourism tourist airline flights holiday resort",
-    'tech': "intelligence artificielle ia openai chatgpt google apple microsoft meta smartphone iphone startup start-up technologie numerique cyberattaque robot robots espace nasa fusee satellite science scientifique scientifiques decouverte chercheurs chercheuse etude quantique semi-conducteurs puce artificial intelligence researchers study space rocket quantum chip software scientists",
+    'pop': "film films cinema serie series netflix disney chanteur chanteuse rappeur rappeuse album clip acteur actrice oscars cesar box-office streaming tiktok influenceur influenceuse celebrity singer movie movies rapper hollywood tournee taylor swift beyonce spotify grammy emmy musique",
+    'environnement': "climatique rechauffement biodiversite pollution ecologie ecologique environnement co2 carbone emissions renouvelable eolien eoliennes solaire secheresse canicule inondation inondations ouragan glacier glaciers ocean oceans cop deforestation espece especes faune flore planete climate warming emissions wildfire wildfires species planet drought flood floods hurricane renewable",
+    'politique': "gouvernement ministre ministres president presidente presidentielle legislatives municipales scrutin urnes elysee assemblee senat depute deputes deputee election elections electoral vote parti macron parlement loi reforme opposition trump congres congress senate parliament minister campaign carney poilievre legault ottawa conservateurs liberaux democrates republicains diplomatie sommet sanctions referendum coalition",
+    'voyage': "voyage voyages tourisme touriste touristes vacances destination destinations hotel hotels croisiere travel tourism tourist holiday resort",
+    'tech': "intelligence artificielle ia openai chatgpt google apple microsoft meta smartphone iphone startup start-up technologie numerique cyberattaque robot robots espace nasa fusee satellite science scientifique scientifiques decouverte chercheurs chercheuse quantique semi-conducteurs puce artificial intelligence researchers space rocket quantum chip software scientists",
     'sante': "sante hopital hopitaux medecin medecins maladie maladies virus epidemie pandemie vaccin vaccination cancer sommeil sante mentale covid ebola grippe patients soins medicament medicaments alzheimer diabete health hospital disease vaccine mental health doctors nurses outbreak drug",
-    'mode': "mode defile defiles fashion week couturier couturiere haute couture chanel dior vuitton hermes design designer beaute createur creatrice runway fashion ",
+    'mode': "defile defiles fashion week couturier couturiere haute couture chanel dior vuitton hermes design designer beaute createur creatrice runway fashion ",
     'gastronomie': "restaurant restaurants cuisinier cuisiniere cuisine recette recettes gastronomie gastronomique vin vins michelin boulangerie patisserie fromage food recipe recipes dining wine cooking chef's",
     'societe': "education ecole ecoles enseignant enseignants eleves universite universites etudiants logement loyer loyers travail emploi chomage salaire salaires greve justice proces tribunal police egalite femmes jeunes jeunesse retraite retraites immigration migrants famille familles pauvrete society school schools housing workers strike court trial police students rent poverty",
 }
@@ -82,6 +83,53 @@ def compiler(table):
     return out
 
 RE_THEMES = compiler(MOTS)
+# mots qui disent vraiment de quoi parle l'article : ils pèsent plus lourd
+FORTS = {
+    'culture': "roman romans romanciere romancier litterature litteraire ecrivain ecrivaine editeur editions goncourt renaudot exposition musee theatre opera",
+    'sport': "match championnat medaille entraineur selectionneur",
+    'sante': "epidemie maladie hopital vaccin patients",
+    'politique': "election elections gouvernement ministre parlement assemblee senat",
+    'environnement': "climatique biodiversite pollution rechauffement",
+}
+RE_FORTS = compiler(FORTS)
+RE_LIEUX = {nom: re.compile(r'(?<![\w-])(' + '|'.join(re.escape(m) for m in sorted(set(mots.split()), key=len, reverse=True)) + r')(?![\w-])') for nom, mots in LIEUX.items()}
+PAYS_DES_SOURCES = {'fr': 'France', 'ca': 'Canada', 'uk': 'Royaume-Uni', 'us': 'États-Unis', 'be': 'Belgique', 'ch': 'Suisse',
+                    'de': 'Allemagne', 'es': 'Espagne', 'it': 'Italie', 'jp': 'Japon', 'au': 'Australie', 'br': 'Brésil', 'ar': 'Argentine',
+                    'in': 'Inde', 'sg': 'Singapour', 'hk': 'Hong Kong', 'il': 'Israël'}
+
+def lieu(a):
+    """Le pays dont parle l'article : les noms de pays, villes et dirigeants cités, le titre comptant triple."""
+    t, r = norm(a['titre']), norm(a['resume'])
+    if a.get('pays_source') == 'ca':   # au Canada, « London » ou « Cambridge » sont des villes de l'Ontario
+        t, r = re.sub(r'\b(london|cambridge|windsor|waterloo|hamilton|kingston|victoria)\b', 'ontario', t), re.sub(r'\b(london|cambridge|windsor|waterloo|hamilton|kingston|victoria)\b', 'ontario', r)
+    for avant, apres in (('coree du nord', 'coree-du-nord'), ('coree du sud', 'coree-du-sud'), ('north korea', 'north-korea'), ('south korea', 'south-korea'),
+                         ('etats unis', 'etats-unis'), ('new york', 'new-york'), ('tel aviv', 'tel-aviv'), ('hong kong', 'hong')):
+        t, r = t.replace(avant, apres), r.replace(avant, apres)
+    scores, position = {}, {}
+    for nom, rx in RE_LIEUX.items():
+        s_ = 3 * len(rx.findall(t)) + len(rx.findall(r))
+        if s_:
+            scores[nom] = s_
+            m = rx.search(t)
+            position[nom] = m.start() if m else 999
+    if scores.get('Québec') and scores.get('Canada') and scores['Québec'] >= scores['Canada'] - 1:
+        scores['Québec'] += scores.pop('Canada')
+    if scores:
+        # à égalité, le pays cité en premier dans le titre l'emporte (« Au Brésil, … Trump » → Brésil)
+        meilleur = max(scores, key=lambda n: (scores[n], -position.get(n, 999)))
+        if scores[meilleur] >= 2:
+            return meilleur
+    # aucun lieu cité : pour un journal local, c'est presque toujours une info de chez lui
+    if a.get('source_id') in MEDIAS_LOCAUX:
+        a['lieu_devine'] = True
+        return MEDIAS_LOCAUX[a['source_id']]
+    return None   # sinon, mieux vaut pas d'étiquette qu'une étiquette fausse
+
+MEDIAS_LOCAUX = {'ouestfrance': 'France', 'leparisien': 'France', '20minutes': 'France',
+                 'lapresse': 'Québec', 'ledevoir': 'Québec', 'jdm': 'Québec', 'tva': 'Québec', 'lesoleil': 'Québec', 'lactualite': 'Québec',
+                 'cbc': 'Canada', 'ctv': 'Canada', 'globalnews': 'Canada', 'globe': 'Canada', 'torontostar': 'Canada', 'nationalpost': 'Canada',
+                 'rtbf': 'Belgique', 'lalibre': 'Belgique', 'letemps': 'Suisse', 'rts': 'Suisse', 'abcau': 'Australie', 'smh': 'Australie',
+                 'clarin': 'Argentine', 'folha': 'Brésil'}
 RE_PAYS = compiler(PAYS_MOTS)
 
 # ---------------------------------------------------------------- travail en parallèle, avec délai maximal
@@ -270,6 +318,9 @@ def recuperer_tout():
                                              date=d, image=it['image'], source=nom, source_id=sid, pays_source=pays,
                                              langue=langue, indices=set())
                 if theme:
+                    if theme.endswith('~'):        # rubrique large (ex. « Pixels » du Monde) : indice plus faible
+                        theme = theme[:-1]
+                        a['indice_faible'] = True
                     a['indices'].add(theme)
                 if not a['image'] and it['image']:
                     a['image'] = it['image']
@@ -281,17 +332,34 @@ def classer(a):
     scores = {}
     for th, rx in RE_THEMES.items():
         s = 2 * len(rx.findall(t)) + len(rx.findall(r))
+        rx_fort = RE_FORTS.get(th)
+        if rx_fort:
+            s += 3 * len(rx_fort.findall(t)) + 2 * len(rx_fort.findall(r))
         if th in a['indices']:
-            s += 6
+            s += 3 if a.get('indice_faible') else 6
         if s:
             scores[th] = s
-    a['theme'] = max(scores, key=scores.get) if scores and max(scores.values()) >= 3 else None
+    # la rubrique du journal fait foi ; sinon, les mots-clés doivent être nets (score élevé et nette avance)
+    rang = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+    if a['indices'] and a.get('indice_faible') and rang and rang[0][0] not in a['indices'] and rang[0][1] >= max(scores.get(t, 0) for t in a['indices']):
+        a['theme'] = rang[0][0]          # rubrique large (« Pixels ») contredite par le sujet de l'article
+        a['theme_sur'] = False
+    elif a['indices']:
+        a['theme'] = max(a['indices'], key=lambda t: scores.get(t, 0))
+        a['theme_sur'] = True
+    elif rang and rang[0][1] >= 6 and (len(rang) == 1 or rang[0][1] - rang[1][1] >= 3):
+        a['theme'] = rang[0][0]
+        a['theme_sur'] = False
+    else:
+        a['theme'] = None
+        a['theme_sur'] = False
     a['themes'] = sorted(k for k, v in scores.items() if v >= 3 or k in a['indices'])
     pays = set()
     for p, rx in RE_PAYS.items():
         if rx.search(t) or len(rx.findall(r)) >= 2:
             pays.add(p)
     a['pays'] = sorted(pays)
+    a['lieu'] = lieu(a)
 
 # Mêmes mots en anglais et en français, pour reconnaître un même sujet dans les deux langues
 ALIAS = dict(p.split('=') for p in """spain=espagne germany=allemagne britain=royaume-uni british=royaume-uni china=chine chinese=chine russia=russie russian=russie
@@ -312,7 +380,7 @@ def jetons(a):
     noms = set()
     for i, m in enumerate(MAJ.finditer(titre)):
         mot = norm(m.group(1)).strip("'’-")
-        if m.start() == 0 or mot in VIDES:
+        if (m.start() == 0 and (mot not in NOMS_PROPRES or mot in MINUSCULES)) or mot in VIDES:
             continue
         noms.add(ALIAS.get(mot, mot))
     mots = {ALIAS.get(w, w) for w in re.findall(r"[a-z0-9\-]{4,}", norm(titre + ' ' + a['resume'][:120])) if w not in VIDES}
@@ -372,6 +440,8 @@ def gras(titre):
             mots = mots[1:]
         g = ' '.join(mots)
         premier = norm(mots[0].strip("'’"))
+        if len(mots) == 1 and re.match(r"^(?:[JLDCNSM]|Qu)['’]", mots[0]):   # « J'ai », « L'an » : pas des noms
+            continue
         if len(mots) == 1:
             suite = titre[m.end():m.end() + 2].strip()
             # un mot seul en début de titre suivi d'une minuscule n'est qu'une majuscule de début de phrase
@@ -438,11 +508,18 @@ def regrouper(articles):
                 rubriques[h] = rubriques.get(h, 0) + 1
             if x['theme']:
                 mots_cles[x['theme']] = mots_cles.get(x['theme'], 0) + 1
-        g['rubriques'] = set(rubriques)
+        avec_rubrique = sum(1 for x in arts if x['indices']) or 1
+        # une rubrique ne compte pour le sujet que si au moins 40 % des journaux qui l'ont classé l'y ont mis
+        g['rubriques'] = {t for t, n in rubriques.items() if n / avec_rubrique >= 0.4}
         poids = {t: 2 * rubriques.get(t, 0) + mots_cles.get(t, 0) for t in set(rubriques) | set(mots_cles)}
         gagnant = max(poids, key=poids.get) if poids else None
         g['theme'] = gagnant if gagnant and (poids[gagnant] >= 0.5 * len(arts) or len(arts) <= 2) else None
         g['pays'] = sorted({p for x in arts for p in x['pays']})
+        if len({x['pays_source'] for x in arts}) > 1:
+            surs = [x['lieu'] for x in arts if x.get('lieu') and not x.get('lieu_devine')]
+            for x in arts:
+                if x.get('lieu_devine'):
+                    x['lieu'] = max(set(surs), key=surs.count) if surs else None
         for x in arts:
             x['_groupe'] = g
     return groupes
@@ -464,7 +541,12 @@ def sujet(g):
             sources.append({'nom': x['source'], 'lien': x['lien'], 'titre': x['titre']})
     images = list(dict.fromkeys([r['image']] + [x['image'] for x in g['articles'] if x['image']]))
     images = [i for i in images if i][:6]
+    lieux = {}
+    for x in g['articles']:
+        if x.get('lieu'):
+            lieux[x['lieu']] = lieux.get(x['lieu'], 0) + (2 if x is r else 1)
     return dict(id=r['id'], titre=r['titre'], resume=r['resume'], image=images[0] if images else None, images=images, gras=gras(r['titre']),
+                lieu=max(lieux, key=lieux.get) if lieux else None,
                 lien=r['lien'], source=r['source'], date=iso(max(x['date'] for x in g['articles'])),
                 theme=g['theme'], rubrique=THEMES.get(g['theme'], 'Monde' if len({x['pays_source'] for x in g['articles']}) > 2 else 'Actualité'), pays=g['pays'], sources=sources[:8])
 
@@ -480,16 +562,31 @@ def carte(a):
     images = list(dict.fromkeys([a['image']] + ([x['image'] for x in g['articles'] if x['image']] if g else [])))
     images = [i for i in images if i][:4]
     return dict(id=a['id'], titre=a['titre'], resume=a['resume'], image=images[0] if images else None, images=images, gras=gras(a['titre']),
-                lien=a['lien'], source=a['source'], date=iso(a['date']), theme=a['theme'], rubrique=THEMES.get(a['theme'], 'Actualité'), pays=a['pays'],
+                lien=a['lien'], source=a['source'], date=iso(a['date']), lieu=a.get('lieu'), theme=a['theme'], rubrique=THEMES.get(a['theme'], 'Actualité'), pays=a['pays'],
                 langue=a['langue'], autres=autres[:6])
 
+RARES = set()   # noms propres présents dans peu de sujets : s'ils sont partagés, c'est le même sujet (même dans deux langues)
+
+def noms_du_groupe(g):
+    return set().union(*(x.get('_noms', set()) for x in g['articles'][:4]))
+
+def calculer_rares(groupes):
+    compte = {}
+    for g in groupes:
+        for n in noms_du_groupe(g):
+            compte[n] = compte.get(n, 0) + 1
+    RARES.clear()
+    RARES.update(n for n, c in compte.items() if c <= 6 and len(n) >= 4)
+
 def sans_doublon(groupes):
-    out, empreintes = [], []
+    out, empreintes, noms = [], [], []
     for g in groupes:
         e = set().union(*(empreinte(x['titre']) for x in g['articles'][:3]))
-        if any(meme_sujet(empreinte(representant(g)['titre']), f) or len(e & f) >= 4 for f in empreintes):
+        ng = noms_du_groupe(g) & RARES
+        if any(meme_sujet(empreinte(representant(g)['titre']), f) or len(e & f) >= 4 for f in empreintes) or any(ng & n for n in noms):
             continue
         empreintes.append(e)
+        noms.append(ng)
         out.append(g)
     return out
 
@@ -503,14 +600,19 @@ def top_sujets(groupes, filtre, n=8):
         out += reste[: n - len(out)]
     return [sujet(g) for g in out]
 
-def fil(articles, filtre, n, deja=()):
+def fil(articles, filtre, n, deja=(), max_par_media=8):
     """Le fil : un seul article par sujet, et rien de ce qui est déjà dans l'essentiel de la page."""
     deja = list(deja)
     liens_deja = {l for x in deja for l in [x.get('lien')] + [s['lien'] for s in x.get('sources', [])]}
     empreintes = [empreinte(x['titre']) for x in deja] + [empreinte(s.get('titre', '')) for x in deja for s in x.get('sources', [])]
-    vus, out = set(), []
+    noms_deja = set()
+    for x in deja:
+        noms_deja |= {ALIAS.get(norm(m.group(1)).strip("'’-"), norm(m.group(1)).strip("'’-")) for m in MAJ.finditer(x['titre'])} & RARES
+    vus, out, par_media = set(), [], {}
     for a in sorted(articles, key=lambda x: x['date'], reverse=True):
-        if not filtre(a) or a['lien'] in liens_deja:
+        if not filtre(a) or a['lien'] in liens_deja or par_media.get(a['source'], 0) >= max_par_media:
+            continue
+        if a.get('_noms', set()) & noms_deja:
             continue
         g = id(a.get('_groupe'))
         if g in vus:
@@ -520,9 +622,17 @@ def fil(articles, filtre, n, deja=()):
             continue
         vus.add(g)
         empreintes.append(e)
+        par_media[a['source']] = par_media.get(a['source'], 0) + 1
         out.append(a)
-    # les articles avec photo d'abord dans chaque tranche d'une heure, pour un fil plus visuel
-    out.sort(key=lambda x: (x['date'].replace(minute=0, second=0, microsecond=0), bool(x['image'])), reverse=True)
+    # importance : un sujet repris par plusieurs médias remonte ; une petite info locale d'un seul média descend
+    def poids(x):
+        g = x.get('_groupe')
+        n = g['nb_sources'] if g else 1
+        h = min(12, 3 * (n - 1))
+        if n == 1 and not x['theme'] and x.get('source_id') in MEDIAS_LOCAUX:
+            h -= 8
+        return x['date'] + dt.timedelta(hours=h)
+    out.sort(key=poids, reverse=True)
     return [carte(a) for a in out[:n]]
 
 # ---------------------------------------------------------------- images manquantes
@@ -743,6 +853,7 @@ def lancer():
         classer(a)
     apprendre_noms(articles)
     groupes = regrouper(articles)
+    calculer_rares(groupes)
 
     # --- l'essentiel du jour : figé une fois par jour
     local = dt.datetime.now(FUSEAU)
@@ -753,16 +864,21 @@ def lancer():
     if essentiel is None:
         essentiel = dict(jour=jour, fige_a=iso(dt.datetime.now(dt.timezone.utc)),
                          une=top_sujets(groupes, lambda g: True),
-                         themes={t: top_sujets(groupes, lambda g, t=t: g['theme'] == t and (t in g['rubriques'] or g['nb_sources'] >= 2)) for t in THEMES},
+                         themes={t: top_sujets(groupes, lambda g, t=t: t in g['rubriques'] and g['theme'] == t) for t in THEMES},
                          pays={p: top_sujets(groupes, lambda g, p=p: p in g['pays']) for p in PAYS_MOTS})
         essentiel['une'] = photos.garder(essentiel['une'], 5, True)
         essentiel['themes'] = {t: photos.garder(l, 5, True) for t, l in essentiel['themes'].items()}
         essentiel['pays'] = {p: photos.garder(l, 5, True) for p, l in essentiel['pays'].items()}
         ecrire_json(chemin_jour, essentiel)
 
+    # l'essentiel figé avant l'arrivée du pays de l'info : on le complète sans changer la sélection
+    for x in essentiel['une'] + [y for l in essentiel['themes'].values() for y in l] + [y for l in essentiel['pays'].values() for y in l]:
+        if 'lieu' not in x:
+            x['lieu'] = lieu(dict(titre=x['titre'], resume=x.get('resume', ''), pays_source=None, langue='fr'))
+
     # --- les fils : mis à jour à chaque passage
     fils = dict(accueil=fil(articles, lambda a: True, 130, essentiel['une']),
-                themes={t: fil(articles, lambda a, t=t: t in a['indices'] or (not a['indices'] and a['theme'] == t), 80, essentiel['themes'].get(t, [])) for t in THEMES},
+                themes={t: fil(articles, lambda a, t=t: a['theme'] == t and (t in a['indices'] or not a['indices']), 80, essentiel['themes'].get(t, [])) for t in THEMES},
                 pays={p: fil(articles, lambda a, p=p: p in a['pays'], 80, essentiel['pays'].get(p, [])) for p in PAYS_MOTS})
     fils = dict(accueil=photos.garder(fils['accueil'], 90, analyser=48),
                 themes={t: photos.garder(l, 60, analyser=24) for t, l in fils['themes'].items()},

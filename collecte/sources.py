@@ -20,7 +20,7 @@ SOURCES = [
         (LM.format('sport'), 'sport'), (LM.format('tennis'), 'sport'),
         (LM.format('culture'), 'culture'), (LM.format('cinema'), 'pop'), (LM.format('musiques'), 'pop'),
         (LM.format('planete'), 'environnement'), (LM.format('climat'), 'environnement'),
-        (LM.format('sciences'), 'tech'), (LM.format('pixels'), 'tech'),
+        (LM.format('sciences'), 'tech'), (LM.format('pixels'), 'tech~'),
         (LM.format('m-styles'), None), (LM.format('m-mode'), 'mode'),
         (LM.format('societe'), 'societe'), (LM.format('education'), 'societe'),
         (LM.format('sante'), 'sante'), (LM.format('afrique'), None),
