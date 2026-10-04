@@ -412,3 +412,24 @@ h3 strong,.fiche h2 strong{font-weight:700}
 .appris p{margin:0;font-size:15px;line-height:1.6}
 .appris small{color:var(--doux);font-size:11px}
 a.icone{color:var(--texte)}
+
+/* ---------- Guide de démarrage ---------- */
+.guide{position:fixed;inset:0;z-index:30;background:var(--fond);color:var(--texte);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);animation:apparait .3s ease}
+.guide-passer{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:16px;z-index:2;min-height:44px;padding:0 14px;border:0;background:transparent;color:var(--doux);font:inherit;font-size:14px;cursor:pointer}
+.guide-pages{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.guide-pages::-webkit-scrollbar{display:none}
+.guide-page{flex:0 0 100%;scroll-snap-align:start;box-sizing:border-box;padding:96px 28px 24px;display:flex;flex-direction:column;justify-content:center;gap:16px;max-width:100%;overflow-y:auto}
+.guide-page > *{max-width:520px;margin-inline:auto;width:100%}
+.guide-sur{font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--doux)}
+.guide-nom{margin:0;font-family:var(--titre);font-weight:400;font-size:clamp(88px,26vw,140px);line-height:.9;letter-spacing:.06em}
+.guide-page h2{margin:0;font-family:var(--titre);font-weight:400;font-size:clamp(38px,10vw,56px);line-height:1.02;letter-spacing:-.01em;text-wrap:balance}
+.guide-page p{margin:0;font-family:var(--une);font-size:19px;line-height:1.45;color:var(--texte)}
+.guide-page .devise{margin-top:-6px}
+.guide-action{align-self:flex-start;min-height:52px;padding:0 22px;border-radius:999px;border:0;background:var(--texte);color:var(--fond);font:inherit;font-size:15px;font-weight:500;cursor:pointer;width:auto!important}
+.guide-note{font-family:var(--ui)!important;font-size:13px!important;color:var(--doux)!important}
+.guide .envies button[aria-pressed="true"]{background:var(--texte);border-color:var(--texte);color:var(--fond);font-weight:500}
+.guide-bas{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px 28px 22px;max-width:576px;width:100%;margin:0 auto;box-sizing:border-box}
+.guide-points{display:flex;gap:6px}
+.guide-points span{width:7px;height:7px;border-radius:50%;background:var(--filet);transition:all .25s ease}
+.guide-points span.on{width:22px;border-radius:4px;background:var(--texte)}
+.guide-suivant{min-height:52px;padding:0 28px;border-radius:999px;border:0;background:var(--texte);color:var(--fond);font:inherit;font-size:15px;font-weight:600;cursor:pointer}

@@ -339,15 +339,16 @@ function blocSelection(t) {
 
 function blocPres(items) {
   const deja = vusPage.slice();
-  const miens = avecPhoto(items).filter(x => !deja.some(v => v.lien === x.lien || memeSujet(empreinte(x.titre), v.e))).filter(x => (x.pays || []).some(p => prefs.pays.includes(p)));
+  const chezMoi = (x, p) => (x.pays || []).includes(p) || x.lieu === nomPays(p);
+  const miens = avecPhoto(items).filter(x => !deja.some(v => v.lien === x.lien || memeSujet(empreinte(x.titre), v.e))).filter(x => prefs.pays.some(p => chezMoi(x, p)));
   const choix = [];
-  prefs.pays.forEach(p => { const x = miens.find(y => y.pays.includes(p) && !choix.includes(y)); if (x) choix.push(x); });
+  prefs.pays.forEach(p => { const x = miens.find(y => chezMoi(y, p) && !choix.includes(y)); if (x) choix.push(x); });
   miens.forEach(x => { if (choix.length < 2 && !choix.includes(x)) choix.push(x); });
   if (!choix.length) return '';
   choix.slice(0, 2).forEach(nouveau);
   return `<section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle('Près de chez toi')}
     <p class="precision">Selon les pays que tu as choisis.</p>
-    <div class="duo">${choix.slice(0, 2).map(x => carte(x, '', PAYS[x.pays.find(p => prefs.pays.includes(p))].nom)).join('')}</div></section>`;
+    <div class="duo">${choix.slice(0, 2).map(x => carte(x, '', nomPays(prefs.pays.find(p => chezMoi(x, p))))).join('')}</div></section>`;
 }
 function entete(nom, chapo, cle) {
   return `<header class="entete marge">
@@ -375,7 +376,7 @@ pages.accueil = () => {
       <span class="maj" id="maj">Mis à jour ${ilYa(D.maj)} · ${D.nb_sources} médias</span>
       <div class="filet"></div></header>
     <section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle('Mes pays')}
-      <nav class="pays" aria-label="Mes pays">${prefs.pays.map(p => `<a href="#pays-${p}" class="tuile"><img src="${PAYS[p].photo}" alt=""><div><strong>${PAYS[p].nom}</strong><small>${(c.pays || {})[p] || ''}</small></div></a>`).join('')}</nav></section>
+      <nav class="pays" aria-label="Mes pays">${prefs.pays.map(p => `<a href="#pays-${p}" class="tuile"><img src="${esc(photoPays(p))}" alt=""><div><strong>${esc(nomPays(p))}</strong><small>${(c.pays || {})[p] || ''}</small></div></a>`).join('')}</nav></section>
     ${blocEssentiel("L'actualité du jour", e.une, 'defile')}
     ${blocFil('accueil', fil, "Au fil de l'actu")}
     <section class="marge" style="display:flex;flex-direction:column;gap:16px">${libelle('Mes thèmes')}
@@ -496,18 +497,31 @@ pages.sport = () => {
 };
 
 /* --- Pays */
+function photoPays(p) {
+  if (PAYS[p] && PAYS[p].photo) return PAYS[p].photo;
+  // la photo d'un article du pays, jamais un gros plan de visage
+  const liste = [...((D.essentiel.pays || {})[p] || []), ...((D.fils.pays || {})[p] || [])].filter(x => x.image);
+  const x = liste.find(y => !y.gros_plan) || liste[0];
+  return x ? reduite(x.image, 600) : 'img/france.jpg';
+}
+// « la Chine », « l'Inde », « le Brésil »… pour des phrases naturelles
+const ARTICLES = { france: 'la France', quebec: 'le Québec', canada: 'le Canada', 'etats-unis': 'les États-Unis', 'royaume-uni': 'le Royaume-Uni',
+  belgique: 'la Belgique', suisse: 'la Suisse', allemagne: "l'Allemagne", espagne: "l'Espagne", italie: "l'Italie", portugal: 'le Portugal',
+  maroc: 'le Maroc', algerie: "l'Algérie", tunisie: 'la Tunisie', senegal: 'le Sénégal', 'cote-ivoire': "la Côte d'Ivoire", liban: 'le Liban',
+  israel: 'Israël', ukraine: "l'Ukraine", chine: 'la Chine', japon: 'le Japon', inde: "l'Inde", bresil: 'le Brésil', mexique: 'le Mexique',
+  australie: "l'Australie" };
 function pagePays(p) {
-  const cfg = PAYS[p];
+  const cfg = { nom: nomPays(p), photo: photoPays(p), chapo: `Toute l'actualité qui concerne ${ARTICLES[p] || nomPays(p)}.` };
   const fil = classerPerso(D.fils.pays[p] || [], { recence: true });
   enregistrerFil('pays-' + p, fil);
   return { classe: 'ecran page-pays', html: `
     <header class="bassin"><img src="${cfg.photo}" alt="">
       <div class="barre">${RETOUR}<button type="button" class="alerte" data-cloche="pays-${p}" aria-pressed="${!!prefs.cloches['pays-' + p]}" aria-label="Recevoir une notification pour ${cfg.nom}">${CLOCHE}</button></div>
-      <div class="bassin-bas"><div class="surtitre"><span>Mon pays</span><span>${dateDuJour()}</span></div><h1 class="titre-sport">${cfg.nom}</h1></div></header>
+      <div class="bassin-bas"><div class="surtitre"><span>Pays suivi</span><span>${dateDuJour()}</span></div><h1 class="titre-sport">${cfg.nom}</h1></div></header>
     <p class="chapo marge">${cfg.chapo}</p>
-    ${blocEssentiel(`L'essentiel ${p === 'france' ? 'en France' : 'au Québec'}`, (D.essentiel.pays || {})[p], 'defile')}
+    ${blocEssentiel(`L'essentiel · ${cfg.nom}`, (D.essentiel.pays || {})[p], 'defile')}
     ${blocFil('pays-' + p, fil, "Au fil de l'actu")}
-    <p class="pied marge">Tu as fait le tour de l'actu ${p === 'france' ? 'en France' : 'au Québec'} aujourd'hui.</p>` };
+    <p class="pied marge">Tu as fait le tour de l'actu · ${esc(cfg.nom)} aujourd'hui.</p>` };
 }
 pages['pays-france'] = () => pagePays('france');
 pages['pays-quebec'] = () => pagePays('quebec');
@@ -553,7 +567,7 @@ pages.reglages = () => {
       <div class="envies">${[['encre', 'Bleu encre'], ['papier', 'Papier'], ['sapin', 'Vert sapin']].map(([v, t]) => pastille('data-couleur', v, prefs.couleur === v, t)).join('')}</div></section>
 
     <section class="marge bloc-reglage">${libelle('Mes pays')}
-      <div class="envies">${Object.entries(PAYS).map(([k, p]) => pastille('data-pays', k, prefs.pays.includes(k), p.nom)).join('')}</div></section>
+      <div class="envies">${paysProposes().map(k => pastille('data-pays', k, prefs.pays.includes(k), nomPays(k))).join('')}</div></section>
 
     <section class="marge bloc-reglage">${libelle('Mes médias préférés', `<span id="nb-medias">${(prefs.medias || []).length} choisi${(prefs.medias || []).length > 1 ? 's' : ''}</span>`)}
       <p class="precision">Ils passent devant dans ton fil. Les autres médias restent là, juste un peu plus bas.</p>
@@ -568,6 +582,8 @@ pages.reglages = () => {
       <div><h3>Tu lis moins</h3><p>${a.moins.join(' · ') || '—'}</p></div></div>`}
       <button type="button" class="voir-plus" id="effacer-habitudes">Effacer mes habitudes de lecture</button>
     </section>
+    <section class="marge bloc-reglage">${libelle('Aide')}
+      <button type="button" class="voir-plus" id="revoir-guide">Revoir le guide de démarrage</button></section>
     <p class="pied marge">AVA lit ${D.nb_sources} médias. Ton fil reste mondial : tes habitudes changent seulement l'ordre et le dosage.</p>` };
 };
 
@@ -581,8 +597,109 @@ function activerReglages() {
       g.hidden = !visibles;
     });
   });
+  const rg = $('#revoir-guide');
+  if (rg) rg.addEventListener('click', ouvrirGuide);
   const eff = $('#effacer-habitudes');
   if (eff) eff.addEventListener('click', () => { prefs.habitudes = null; prefs.lectures = {}; habitudes(); sauver(); afficher('reglages', true); montrer('Habitudes effacées. AVA recommence à apprendre.'); });
+}
+
+/* ------------------------------------------------------------------ le guide de démarrage (4 pages, au premier lancement) */
+const MIN_ARTICLES_PAYS = 8;   // un pays n'est proposé que s'il a assez d'actu pour remplir sa page
+function paysProposes() {
+  const compte = (D.compte || {}).pays || {};
+  return Object.keys(D.pays_suivis || PAYS).filter(p => (compte[p] || 0) >= MIN_ARTICLES_PAYS || prefs.pays.includes(p));
+}
+function nomPays(p) { return (D.pays_suivis || {})[p] || (PAYS[p] || {}).nom || p; }
+
+function ouvrirGuide() {
+  const choixPays = new Set(prefs.guideVu ? prefs.pays : []);
+  const choixThemes = new Set(prefs.guideVu ? prefs.themes : []);
+  const fond = document.createElement('div');
+  fond.className = 'guide accueil';
+  fond.dataset.theme = prefs.couleur;
+  fond.setAttribute('role', 'dialog');
+  fond.setAttribute('aria-modal', 'true');
+  fond.setAttribute('aria-label', 'Bienvenue sur AVA');
+  const pastilles = (liste, choix, attr) => liste.map(([k, t]) => `<button type="button" ${attr}="${esc(k)}" aria-pressed="${choix.has(k)}">${esc(t)}</button>`).join('');
+  fond.innerHTML = `
+    <button type="button" class="guide-passer">Passer</button>
+    <div class="guide-pages" id="guide-pages">
+      <section class="guide-page">
+        <span class="guide-sur">Bienvenue</span>
+        <h1 class="guide-nom">AVA</h1>
+        <span class="devise">All Views Available</span>
+        <p>L'actualité du monde entier, choisie parmi plus de ${Math.floor((D.nb_sources || 80) / 10) * 10} médias reconnus.</p>
+        <p>L'essentiel en quelques minutes, sans le bruit ni les fausses infos.</p>
+      </section>
+      <section class="guide-page">
+        <span class="guide-sur">Chaque matin</span>
+        <h2>Les 5 infos du jour</h2>
+        <p>À 6 h, AVA choisit les 5 infos dont tout le monde parle, dans 5 pays différents. De quoi être à jour avant ton café.</p>
+        <button type="button" class="guide-action" id="guide-notif">${prefs.notifMatin ? 'Notification du matin activée' : 'Recevoir les 5 infos chaque matin'}</button>
+        <p class="guide-note" id="guide-note"></p>
+      </section>
+      <section class="guide-page">
+        <span class="guide-sur">Tes pays</span>
+        <h2>Quels pays veux-tu suivre&nbsp;?</h2>
+        <p>Tu auras une page pour chacun. Tu pourras changer ça quand tu veux dans les réglages.</p>
+        <div class="envies">${pastilles(paysProposes().map(p => [p, nomPays(p)]), choixPays, 'data-guide-pays')}</div>
+      </section>
+      <section class="guide-page">
+        <span class="guide-sur">Tes thèmes</span>
+        <h2>Qu'est-ce qui t'intéresse&nbsp;?</h2>
+        <p>Choisis autant de thèmes que tu veux. AVA apprendra aussi en te regardant lire.</p>
+        <div class="envies">${pastilles(Object.entries(THEMES).map(([k, t]) => [k, t.nom]), choixThemes, 'data-guide-theme')}</div>
+      </section>
+    </div>
+    <div class="guide-bas">
+      <div class="guide-points" aria-hidden="true">${[0, 1, 2, 3].map(i => `<span class="${i ? '' : 'on'}"></span>`).join('')}</div>
+      <button type="button" class="guide-suivant" id="guide-suivant">Suivant</button>
+    </div>`;
+  document.body.appendChild(fond);
+  document.body.style.overflow = 'hidden';
+  const pagesG = fond.querySelector('#guide-pages');
+  const points = fond.querySelectorAll('.guide-points span');
+  const suivant = fond.querySelector('#guide-suivant');
+  const page = () => Math.round(pagesG.scrollLeft / pagesG.clientWidth);
+  const majBas = () => {
+    const i = page();
+    points.forEach((p, k) => p.classList.toggle('on', k === i));
+    suivant.textContent = i === 3 ? 'Commencer' : 'Suivant';
+  };
+  pagesG.addEventListener('scroll', majBas, { passive: true });
+  const terminer = () => {
+    prefs.guideVu = true;
+    if (choixPays.size) prefs.pays = [...choixPays];
+    if (choixThemes.size) prefs.themes = Object.keys(THEMES).filter(t => choixThemes.has(t));
+    sauver();
+    fond.remove();
+    document.body.style.overflow = '';
+    afficher('accueil');
+  };
+  suivant.addEventListener('click', () => {
+    const i = page();
+    if (i >= 3) return terminer();
+    pagesG.scrollTo({ left: (i + 1) * pagesG.clientWidth, behavior: 'smooth' });
+  });
+  fond.querySelector('.guide-passer').addEventListener('click', terminer);
+  fond.addEventListener('click', e => {
+    const bp = e.target.closest('[data-guide-pays]'), bt = e.target.closest('[data-guide-theme]');
+    const b = bp || bt;
+    if (!b) return;
+    const ens = bp ? choixPays : choixThemes, k = bp ? bp.dataset.guidePays : bt.dataset.guideTheme;
+    ens.has(k) ? ens.delete(k) : ens.add(k);
+    b.setAttribute('aria-pressed', ens.has(k));
+  });
+  fond.querySelector('#guide-notif').addEventListener('click', async e => {
+    const note = fond.querySelector('#guide-note');
+    prefs.notifMatin = true; sauver();
+    e.target.textContent = 'Notification du matin activée';
+    if ('Notification' in window && Notification.permission !== 'denied') {
+      try { await Notification.requestPermission(); } catch (err) { /* certains navigateurs refusent la demande */ }
+    }
+    note.textContent = "C'est noté. L'envoi chaque matin arrivera avec l'application ; ton choix est déjà enregistré.";
+  });
+  suivant.focus();
 }
 
 /* ------------------------------------------------------------------ affichage */
@@ -792,7 +909,9 @@ async function charger() {
 async function demarrer() {
   try {
     D = await charger();
+    Object.keys(D.pays_suivis || {}).forEach(p => { pages['pays-' + p] = () => pagePays(p); });
     afficher(location.hash.slice(1) || 'accueil');
+    if (!prefs.guideVu) ouvrirGuide();
   } catch (e) {
     $('#vue').innerHTML = `<p class="pied marge" style="padding-top:40vh">L'actualité n'a pas pu être chargée. Vérifie ta connexion, puis recharge la page.</p>`;
     return;

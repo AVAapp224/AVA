@@ -129,8 +129,21 @@ MEDIAS_LOCAUX = {'ouestfrance': 'France', 'leparisien': 'France', '20minutes': '
                  'lapresse': 'Québec', 'ledevoir': 'Québec', 'jdm': 'Québec', 'tva': 'Québec', 'lesoleil': 'Québec', 'lactualite': 'Québec',
                  'cbc': 'Canada', 'ctv': 'Canada', 'globalnews': 'Canada', 'globe': 'Canada', 'torontostar': 'Canada', 'nationalpost': 'Canada',
                  'rtbf': 'Belgique', 'lalibre': 'Belgique', 'letemps': 'Suisse', 'rts': 'Suisse', 'abcau': 'Australie', 'smh': 'Australie',
-                 'clarin': 'Argentine', 'folha': 'Brésil'}
+                 'clarin': 'Argentine', 'folha': 'Brésil', 'corriere': 'Italie', 'elpais': 'Espagne', 'batimes': 'Argentine',
+                 'timesofindia': 'Inde', 'premiumtimes': 'Nigeria', 'dailymaverick': 'Afrique du Sud', 'bangkokpost': 'Thaïlande', 'kyivindependent': 'Ukraine'}
 RE_PAYS = compiler(PAYS_MOTS)
+# Les pays qu'on peut suivre (une page chacun). France et Québec gardent leur détection propre, les autres suivent le pays de l'info.
+PAYS_SUIVIS = {'france': 'France', 'quebec': 'Québec', 'canada': 'Canada', 'etats-unis': 'États-Unis', 'royaume-uni': 'Royaume-Uni',
+               'belgique': 'Belgique', 'suisse': 'Suisse', 'allemagne': 'Allemagne', 'espagne': 'Espagne', 'italie': 'Italie',
+               'portugal': 'Portugal', 'maroc': 'Maroc', 'algerie': 'Algérie', 'tunisie': 'Tunisie', 'senegal': 'Sénégal',
+               'cote-ivoire': "Côte d'Ivoire", 'liban': 'Liban', 'israel': 'Israël', 'ukraine': 'Ukraine', 'chine': 'Chine',
+               'japon': 'Japon', 'inde': 'Inde', 'bresil': 'Brésil', 'mexique': 'Mexique', 'australie': 'Australie'}
+
+def article_du_pays(a, p):
+    return a.get('lieu') == PAYS_SUIVIS[p] or (p in PAYS_MOTS and p in a['pays'])
+
+def sujet_du_pays(g, p):
+    return lieu_du_groupe(g) == PAYS_SUIVIS[p] or (p in PAYS_MOTS and p in g['pays'])
 
 # ---------------------------------------------------------------- travail en parallèle, avec délai maximal
 import queue
@@ -1037,10 +1050,16 @@ def lancer():
         essentiel = dict(jour=jour, fige_a=iso(dt.datetime.now(dt.timezone.utc)),
                          une=une_monde(groupes),
                          themes={t: top_sujets(groupes, lambda g, t=t: t in g['rubriques'] and g['theme'] == t) for t in THEMES},
-                         pays={p: top_sujets(groupes, lambda g, p=p: p in g['pays']) for p in PAYS_MOTS})
+                         pays={p: top_sujets(groupes, lambda g, p=p: sujet_du_pays(g, p)) for p in PAYS_SUIVIS})
         essentiel['une'] = photos.garder(essentiel['une'], 5, True)
         essentiel['themes'] = {t: photos.garder(l, 5, True) for t, l in essentiel['themes'].items()}
         essentiel['pays'] = {p: photos.garder(l, 5, True) for p, l in essentiel['pays'].items()}
+        ecrire_json(chemin_jour, essentiel)
+
+    manquants = [p for p in PAYS_SUIVIS if p not in essentiel['pays']]
+    if manquants:
+        for p in manquants:
+            essentiel['pays'][p] = photos.garder(top_sujets(groupes, lambda g, p=p: sujet_du_pays(g, p)), 5, True)
         ecrire_json(chemin_jour, essentiel)
 
     # l'essentiel figé avant l'arrivée du pays de l'info : on le complète sans changer la sélection
@@ -1051,7 +1070,7 @@ def lancer():
     # --- les fils : mis à jour à chaque passage
     fils = dict(accueil=fil_monde(groupes, 130, essentiel['une']),
                 themes={t: fil(articles, lambda a, t=t: a['theme'] == t and (t in a['indices'] or not a['indices']), 80, essentiel['themes'].get(t, [])) for t in THEMES},
-                pays={p: fil(articles, lambda a, p=p: p in a['pays'], 80, essentiel['pays'].get(p, [])) for p in PAYS_MOTS})
+                pays={p: fil(articles, lambda a, p=p: article_du_pays(a, p), 60, essentiel['pays'].get(p, [])) for p in PAYS_SUIVIS})
     fils = dict(accueil=photos.garder(fils['accueil'], 90, analyser=48),
                 themes={t: photos.garder(l, 60, analyser=24) for t, l in fils['themes'].items()},
                 pays={p: photos.garder(l, 60, analyser=24) for p, l in fils['pays'].items()})
@@ -1064,7 +1083,8 @@ def lancer():
         maj=iso(dt.datetime.now(dt.timezone.utc)), nb_articles=len(articles), nb_sources=sum(1 for v in etats.values() if v['ok']),
         essentiel=essentiel, fils=fils, marches=marches, societes=societes,
         cours_source='Yahoo Finance', cours_releve=iso(dt.datetime.fromtimestamp(getattr(bourse, 'releve', None) or time.time(), dt.timezone.utc)),
-        compte={'themes': {t: len(fils['themes'][t]) for t in THEMES}, 'pays': {p: len(fils['pays'][p]) for p in PAYS_MOTS}},
+        compte={'themes': {t: len(fils['themes'][t]) for t in THEMES}, 'pays': {p: len(fils['pays'][p]) for p in PAYS_SUIVIS}},
+        pays_suivis=PAYS_SUIVIS,
         sources=sorted(n for n, v in etats.items() if v['ok']),
         medias=[{'nom': nom, 'pays': pays} for sid, nom, pays, langue, flux in SOURCES if etats.get(nom, {}).get('ok')],
     )
