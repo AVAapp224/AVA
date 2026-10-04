@@ -315,6 +315,18 @@ function variation(v) {
   const haut = v >= 0;
   return `<em class="${haut ? 'hausse' : 'baisse'}">${haut ? '▲ +' : '▼ −'}${nf(Math.abs(v))} %</em>`;
 }
+/* Transparence : d'où viennent les cours, avec quel décalage, et quand ils ont été relevés */
+function provenanceCours() {
+  const heure = d => new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', ' h ');
+  const marches = D.marches || [];
+  const dernier = Math.max(0, ...marches.map(m => m.heure || 0)) * 1000;
+  let ferme = '';
+  if (dernier && Date.now() - dernier > 12 * 3600e3) {
+    ferme = ` · Bourses fermées : cours de clôture du ${new Date(dernier).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}`;
+  }
+  return `<p class="provenance">Source : <strong>${esc(D.cours_source || 'Yahoo Finance')}</strong> · cours en différé d'environ 15 à 20 minutes · relevés à ${heure(D.cours_releve || D.maj)}${ferme}</p>`;
+}
+
 pages.bourse = () => {
   const fil = ordonner(D.fils.themes.bourse || []);
   enregistrerFil('bourse', fil);
@@ -329,6 +341,7 @@ pages.bourse = () => {
     <section style="display:flex;flex-direction:column;gap:14px"><div class="marge">${libelle('Les marchés', marches.length ? 'Cours en différé' : '')}</div>
       ${marches.length ? `<div class="marches">${marches.map(m => `<div class="indice"><span>${esc(m.nom)}</span><b>${nf(m.prix)}${m.nom.includes('/') ? '' : devise(m.devise)}</b>${variation(m.variation)}${courbe(m.courbe, m.variation >= 0 ? 'var(--hausse)' : 'var(--baisse)')}</div>`).join('')}</div>`
         : `<p class="vide marge" style="margin:0 20px">Les cours sont momentanément indisponibles. Ils reviennent au prochain passage.</p>`}
+      ${marches.length ? `<div class="marge">${provenanceCours()}</div>` : ''}
     </section>
     <section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle('Mes entreprises', 'Cours en différé')}
       <div><div class="portefeuille">${mes.map((s, i) => `
@@ -346,6 +359,7 @@ pages.bourse = () => {
         <div class="recherche" id="recherche-societes" hidden><label for="champ-societe">Choisis une entreprise</label>
           <input id="champ-societe" type="search" placeholder="Ex. Apple, Airbus…" autocomplete="off">
           <div class="suggestions">${autres.map(s => `<button type="button" data-ajout-societe="${esc(s.symbole)}">${esc(s.nom)}</button>`).join('')}</div></div>` : ''}
+      ${mes.length ? provenanceCours() : ''}
       </div></section>
     ${blocEssentiel("L'essentiel de la Bourse", (D.essentiel.themes || {}).bourse, 'defile')}
     ${blocPres(D.fils.themes.bourse || [])}

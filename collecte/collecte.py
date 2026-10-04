@@ -699,6 +699,7 @@ def bourse(articles):
         if frais:
             cache = dict(frais, _t=time.time())
             ecrire_json(chemin, cache)
+    bourse.releve = cache.get('_t')
     m = [cache.get(s) for s, _ in MARCHES]
     s = [cache.get(x[0]) for x in SOCIETES]
     marches = [dict(symbole=sym, nom=nom, **c) for (sym, nom), c in zip(MARCHES, m) if c]
@@ -770,6 +771,7 @@ def lancer():
     sortie = dict(
         maj=iso(dt.datetime.now(dt.timezone.utc)), nb_articles=len(articles), nb_sources=sum(1 for v in etats.values() if v['ok']),
         essentiel=essentiel, fils=fils, marches=marches, societes=societes,
+        cours_source='Yahoo Finance', cours_releve=iso(dt.datetime.fromtimestamp(getattr(bourse, 'releve', None) or time.time(), dt.timezone.utc)),
         compte={'themes': {t: len(fils['themes'][t]) for t in THEMES}, 'pays': {p: len(fils['pays'][p]) for p in PAYS_MOTS}},
         sources=sorted(n for n, v in etats.items() if v['ok']),
     )

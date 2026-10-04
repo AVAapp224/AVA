@@ -393,3 +393,6 @@ h3 strong,.fiche h2 strong{font-weight:700}
   .fil { grid-template-columns: repeat(3, minmax(0, 1fr)) }
   .bandes { grid-template-columns: repeat(3, minmax(0, 1fr)) }
 }
+/* transparence : provenance des chiffres */
+.provenance{margin:10px 0 0;font-size:11.5px;line-height:1.5;color:var(--doux)}
+.provenance strong{font-weight:600;color:var(--texte)}
