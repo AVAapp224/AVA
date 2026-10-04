@@ -549,7 +549,7 @@ def attrait(n):
     if not n:
         return 0.0
     s = n.get('beaute', 0)
-    s -= 6 * max(0.0, n.get('visage', 0) - 0.05)          # au-delà de 5 % de l'image, le visage devient un gros plan
+    s -= 12 * max(0.0, n.get('visage', 0) - 0.02)         # au-delà de 2 % de l'image, un visage pèse de plus en plus
     if n.get('utilitaire'):
         s -= 0.15
     if n.get('largeur', 1000) < 400:
@@ -557,7 +557,7 @@ def attrait(n):
     return s
 
 def gros_plan(n):
-    return bool(n) and n.get('visage', 0) >= 0.08
+    return bool(n) and n.get('visage', 0) >= 0.035      # Ines ne veut pas de visages en gros plan
 
 class Photos:
     """Règle d'or de l'app : tout article affiché a une photo. Les résultats sont gardés en mémoire d'un passage à l'autre."""

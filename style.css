@@ -326,3 +326,70 @@ h3 strong,.fiche h2 strong{font-weight:700}
 /* le nom de l'app */
 .nom-app{letter-spacing:.06em;font-size:64px}
 .devise{margin-top:-8px;font-family:var(--une);font-style:italic;font-size:15px;color:var(--doux)}
+
+/* ======================================================================
+   Grand écran : un vrai site, sur toute la largeur, en colonnes
+   ====================================================================== */
+@media (min-width: 900px) {
+  body { padding-block: 0 }
+  .telephone { max-width: none; border-radius: 0; box-shadow: none; min-height: 100vh }
+  /* le fond couvre toute la largeur, le contenu reste centré et lisible */
+  .ecran { --cote: max(40px, calc((100vw - 1240px) / 2)); padding-top: 48px; padding-bottom: 80px; gap: 48px; min-height: 100vh }
+  .marge { padding-inline: var(--cote) }
+  .defile, .affiches, .marches { padding-inline: var(--cote); scroll-padding: 0 var(--cote) }
+  .progression { padding-inline: var(--cote) }
+  .bourse, .sport, .page-pays { padding-top: 0 }
+  .tete { padding-inline: var(--cote) }
+  .bassin { height: 420px }
+  .bassin .barre, .bassin-bas { left: var(--cote); right: var(--cote) }
+
+  /* en-tête */
+  .titre-app { font-size: 84px }
+  .nom-app { font-size: 96px }
+  .page-theme .titre-app { font-size: 84px }
+  .titre-theme, .titre-sport { font-size: 110px }
+  .chapo-theme, .chapo { font-size: 20px; max-width: 46ch }
+
+  /* mes pays : de grandes tuiles côte à côte */
+  .pays { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px }
+  .tuile { height: 220px }
+  .tuile strong { font-size: 34px }
+
+  /* l'essentiel : plusieurs grandes cartes visibles d'un coup */
+  .une { flex: 0 0 min(420px, 34vw); height: 520px }
+  .une h3 { font-size: 26px }
+  .affiche { flex: 0 0 280px }
+  .bandes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px }
+  .bande { height: 220px }
+  .bande h3 { font-size: 20px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical }
+
+  /* le fil : la mosaïque du croquis, répétée en colonnes comme une page de magazine */
+  .fil { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start }
+  .fil > .carte.g { height: 360px }
+  .fil > .carte.g h3 { font-size: 22px }
+  .rang { gap: 16px }
+  .colonne { gap: 16px }
+  .v { height: 360px }
+  .p { height: 172px }
+  .v h3 { font-size: 19px }
+  .duo { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px }
+  .duo .carte { height: 280px }
+
+  /* mes thèmes : une grille plutôt qu'une longue liste */
+  .themes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 32px; border-top: 0 }
+  .theme { border-top: 1px solid var(--filet) }
+
+  /* listes : Mes entreprises, Mes sports */
+  .portefeuille, .ajouter, .recherche { max-width: 760px }
+  .indice { flex: 0 0 200px }
+
+  /* la fiche d'un article : une fenêtre au centre */
+  .fiche-fond { align-items: center }
+  .fiche { max-width: 620px; border-radius: 26px; max-height: 88vh }
+  .fiche .photo { height: 320px }
+  .fiche h2 { font-size: 30px }
+}
+@media (min-width: 1400px) {
+  .fil { grid-template-columns: repeat(3, minmax(0, 1fr)) }
+  .bandes { grid-template-columns: repeat(3, minmax(0, 1fr)) }
+}
