@@ -1,0 +1,8 @@
+.DS_Store
+__pycache__/
+*.pyc
+collecte/photos/noter
+collecte/*.avant.py
+collecte/test_flux.py
+collecte/candidats.txt
+collecte/alt.txt

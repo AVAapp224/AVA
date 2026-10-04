@@ -1,0 +1,58 @@
+# Met AVA à jour toutes les 10 minutes et publie le site (GitHub Pages).
+name: AVA · collecte et publication
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'      # toutes les 10 minutes (GitHub peut décaler de quelques minutes)
+  workflow_dispatch:            # bouton « Run workflow » pour lancer à la main
+  push:
+    branches: [main]
+    paths-ignore: ['donnees/**', 'collecte/etat/**']
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ava
+  cancel-in-progress: false
+
+jobs:
+  collecte:
+    runs-on: macos-latest       # macOS : pour l'analyse des photos (visages, beauté) intégrée au système
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - name: Préparer l'outil d'analyse des photos
+        run: swiftc -O collecte/photos/noter.swift -o collecte/photos/noter
+      - name: Collecter l'actualité
+        working-directory: collecte
+        run: python3 collecte.py
+      - name: Enregistrer l'actualité
+        run: |
+          git config user.name "AVA"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add donnees collecte/etat
+          git diff --cached --quiet && exit 0
+          git commit -m "Actualité du $(date -u '+%d/%m %H:%M') UTC"
+          git pull --rebase --strategy-option=theirs origin main || true
+          git push
+
+  publication:
+    needs: collecte
+    if: always()
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deploiement
+        uses: actions/deploy-pages@v4
