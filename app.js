@@ -278,6 +278,8 @@ function observerVues() {
 }
 
 /* ------------------------------------------------------------------ blocs de page */
+const AJOUTER = cible => `<a href="#reglages" data-aller="${cible}">+ Ajouter</a>`;
+let cibleReglage = null;   // la section des réglages à montrer en arrivant (« + Ajouter » de l'accueil)
 function libelle(gauche, droite) {
   return `<div class="libelle"><span>${gauche}</span>${droite ? `<span>${droite}</span>` : ''}</div>`;
 }
@@ -375,11 +377,11 @@ pages.accueil = () => {
       <span class="devise">All Views Available</span>
       <span class="maj" id="maj">Mis à jour ${ilYa(D.maj)} · ${D.nb_sources} médias</span>
       <div class="filet"></div></header>
-    <section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle('Mes pays')}
+    <section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle('Mes pays', AJOUTER('reglage-pays'))}
       <nav class="pays" aria-label="Mes pays">${prefs.pays.map(p => `<a href="#pays-${p}" class="tuile"><img src="${esc(photoPays(p))}" alt=""><div><strong>${esc(nomPays(p))}</strong><small>${(c.pays || {})[p] || ''}</small></div></a>`).join('')}</nav></section>
     ${blocEssentiel("L'actualité du jour", e.une, 'defile')}
     ${blocFil('accueil', fil, "Au fil de l'actu")}
-    <section class="marge" style="display:flex;flex-direction:column;gap:16px">${libelle('Mes thèmes')}
+    <section class="marge" style="display:flex;flex-direction:column;gap:16px">${libelle('Mes thèmes', AJOUTER('reglage-themes'))}
       <nav class="themes" aria-label="Mes thèmes">${prefs.themes.map(t => `<a href="#${t}" class="theme"><strong>${THEMES[t].nom}</strong><span>${(c.themes || {})[t] || 0} infos${FLECHE}</span></a>`).join('')}</nav></section>
     <p class="pied marge">Tu es à jour. À demain matin.</p>` };
 };
@@ -497,11 +499,14 @@ pages.sport = () => {
 };
 
 /* --- Pays */
+const MOTS_SPORT = /\b(open|tennis|atp|wta|semis?|quarts?|demi-finale|finale|match|matchs|football|soccer|rugby|basket|nba|nfl|nhl|f1|grand prix|ligue|championnat|olympi\w*|tournoi|mondial|coupe du monde|world cup|eliminee?|defait|bat|beats)\b/i;
 function photoPays(p) {
   if (PAYS[p] && PAYS[p].photo) return PAYS[p].photo;
   // la photo d'un article du pays, jamais un gros plan de visage
   const liste = [...((D.essentiel.pays || {})[p] || []), ...((D.fils.pays || {})[p] || [])].filter(x => x.image);
-  const x = liste.find(y => !y.gros_plan) || liste[0];
+  // d'abord une photo d'actu du pays lui-même (pas un sportif venu y jouer)
+  const sportif = y => y.theme === 'sport' || MOTS_SPORT.test(norm(y.titre));
+  const x = liste.find(y => !y.gros_plan && !sportif(y)) || liste.find(y => !y.gros_plan) || liste[0];
   return x ? reduite(x.image, 600) : 'img/france.jpg';
 }
 // « la Chine », « l'Inde », « le Brésil »… pour des phrases naturelles
@@ -566,8 +571,11 @@ pages.reglages = () => {
     <section class="marge bloc-reglage">${libelle('Couleur de l\'accueil')}
       <div class="envies">${[['encre', 'Bleu encre'], ['papier', 'Papier'], ['sapin', 'Vert sapin']].map(([v, t]) => pastille('data-couleur', v, prefs.couleur === v, t)).join('')}</div></section>
 
-    <section class="marge bloc-reglage">${libelle('Mes pays')}
+    <section class="marge bloc-reglage" id="reglage-pays">${libelle('Mes pays')}
       <div class="envies">${paysProposes().map(k => pastille('data-pays', k, prefs.pays.includes(k), nomPays(k))).join('')}</div></section>
+
+    <section class="marge bloc-reglage" id="reglage-themes">${libelle('Mes thèmes')}
+      <div class="envies">${Object.entries(THEMES).map(([k, t]) => pastille('data-mon-theme', k, prefs.themes.includes(k), t.nom)).join('')}</div></section>
 
     <section class="marge bloc-reglage">${libelle('Mes médias préférés', `<span id="nb-medias">${(prefs.medias || []).length} choisi${(prefs.medias || []).length > 1 ? 's' : ''}</span>`)}
       <p class="precision">Ils passent devant dans ton fil. Les autres médias restent là, juste un peu plus bas.</p>
@@ -722,6 +730,11 @@ function afficher(nom, garderPosition) {
   activer();
   observerVues();
   if (nom === 'reglages') activerReglages();
+  if (nom === 'reglages' && cibleReglage) {
+    const el = document.getElementById(cibleReglage);
+    cibleReglage = null;
+    if (el) el.scrollIntoView({ block: 'start' });
+  }
 }
 window.addEventListener('hashchange', () => afficher(location.hash.slice(1) || 'accueil'));
 
@@ -830,6 +843,14 @@ document.addEventListener('click', e => {
     prefs.pays = prefs.pays.includes(k) ? prefs.pays.filter(p => p !== k) : prefs.pays.concat(k);
     sauver(); paysB.setAttribute('aria-pressed', prefs.pays.includes(k)); return;
   }
+  const monTheme = e.target.closest('[data-mon-theme]');
+  if (monTheme) {
+    const k = monTheme.dataset.monTheme;
+    prefs.themes = Object.keys(THEMES).filter(t => t === k ? !prefs.themes.includes(k) : prefs.themes.includes(t));
+    sauver(); monTheme.setAttribute('aria-pressed', prefs.themes.includes(k)); return;
+  }
+  const aller = e.target.closest('[data-aller]');
+  if (aller) cibleReglage = aller.dataset.aller;
   const media = e.target.closest('[data-media]');
   if (media) {
     const n = media.dataset.media;
