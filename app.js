@@ -376,13 +376,12 @@ pages.accueil = () => {
       <h1 class="titre-app nom-app">AVA</h1>
       <span class="devise">All Views Available</span>
       <span class="maj" id="maj">Mis à jour ${ilYa(D.maj)} · ${D.nb_sources} médias</span>
+      <nav class="rubriques" aria-label="Mes thèmes">${prefs.themes.map(t => `<a href="#${t}">${THEMES[t].nom}</a>`).join('')}<a href="#reglages" data-aller="reglage-themes" class="plus" aria-label="Ajouter un thème">+</a></nav>
       <div class="filet"></div></header>
     <section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle('Mes pays', AJOUTER('reglage-pays'))}
       <nav class="pays" aria-label="Mes pays">${prefs.pays.map(p => `<a href="#pays-${p}" class="tuile"><img src="${esc(photoPays(p))}" alt=""><div><strong>${esc(nomPays(p))}</strong><small>${(c.pays || {})[p] || ''}</small></div></a>`).join('')}</nav></section>
     ${blocEssentiel("L'actualité du jour", e.une, 'defile')}
     ${blocFil('accueil', fil, "Au fil de l'actu")}
-    <section class="marge" style="display:flex;flex-direction:column;gap:16px">${libelle('Mes thèmes', AJOUTER('reglage-themes'))}
-      <nav class="themes" aria-label="Mes thèmes">${prefs.themes.map(t => `<a href="#${t}" class="theme"><strong>${THEMES[t].nom}</strong><span>${(c.themes || {})[t] || 0} infos${FLECHE}</span></a>`).join('')}</nav></section>
     <p class="pied marge">Tu es à jour. À demain matin.</p>` };
 };
 
@@ -934,7 +933,9 @@ async function demarrer() {
   try {
     D = await charger();
     Object.keys(D.pays_suivis || {}).forEach(p => { pages['pays-' + p] = () => pagePays(p); });
-    afficher(location.hash.slice(1) || 'accueil');
+    // on ouvre toujours AVA sur l'accueil (le téléphone peut garder l'adresse des réglages en mémoire)
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+    afficher('accueil');
     if (!prefs.guideVu) ouvrirGuide();
   } catch (e) {
     $('#vue').innerHTML = `<p class="pied marge" style="padding-top:40vh">L'actualité n'a pas pu être chargée. Vérifie ta connexion, puis recharge la page.</p>`;

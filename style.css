@@ -441,3 +441,10 @@ a.icone{color:var(--texte)}
 .guide-page .devise{margin-top:-4px}
 .guide-sur{margin-bottom:-4px}
 #reglage-pays,#reglage-themes{scroll-margin-top:24px}
+
+/* les thèmes, en haut de l'accueil : une ligne de rubriques, comme dans un journal */
+.rubriques{display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;margin-top:4px;-webkit-overflow-scrolling:touch}
+.rubriques::-webkit-scrollbar{display:none}
+.rubriques a{flex:none;display:flex;align-items:center;min-height:36px;padding:0 14px;border-left:1px solid var(--filet);font-family:var(--une);font-size:18px;line-height:1;white-space:nowrap;color:inherit;text-decoration:none}
+.rubriques a:first-child{padding-left:0;border-left:0}
+.rubriques a.plus{color:var(--doux);font-family:var(--ui);font-size:20px;font-weight:300}
