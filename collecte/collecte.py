@@ -272,7 +272,9 @@ def analyser(data):
                             resume=nettoyer(texte(desc_el), 240),
                             date=lire_date(texte(f('pubDate', 'published', 'updated', 'date'))),
                             image=image_de(it, html.unescape(texte(desc_el)) + brut)))
-        return res
+            if 'youtube.com/' in res[-1]['lien']:
+                res[-1] = video_youtube(res[-1], brut)
+        return [x for x in res if x]
     except ET.ParseError:
         # flux mal formé : lecture tolérante par expressions régulières
         t = data.decode('utf-8', 'ignore')
@@ -284,6 +286,24 @@ def analyser(data):
             res.append(dict(titre=nettoyer(cd(g('title'))), lien=cd(g('link')).strip(), resume=nettoyer(cd(g('description')), 240),
                             date=lire_date(cd(g('pubDate'))), image=img.group(1) if img else None))
         return res
+
+EMOJIS = re.compile('[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]+')
+
+def video_youtube(d, brut):
+    """Une vidéo YouTube (HugoDécrypte, Brut) : une vraie photo sans bandes noires, la description en résumé, un titre propre."""
+    m = re.search(r'(?:watch\?v=|shorts/)([\w-]{11})', d['lien'])
+    if not m:
+        return None
+    vid = m.group(1)
+    titre = EMOJIS.sub('', d['titre']).strip(' -|·')
+    if len(titre.split()) < 4:          # « Dernière minute. » : trop vague pour être une info
+        return None
+    desc = re.search(r'<[^>]*description[^>]*>(.*?)</[^>]*description>', brut, flags=re.S)
+    d['titre'] = titre
+    d['resume'] = d['resume'] or nettoyer(EMOJIS.sub('', html.unescape(desc.group(1))) if desc else '', 240)
+    # les Shorts sont verticaux : leur miniature verticale ; les vidéos classiques : la grande miniature 16/9
+    d['image'] = f'https://i.ytimg.com/vi/{vid}/oar2.jpg' if '/shorts/' in d['lien'] else f'https://i.ytimg.com/vi/{vid}/maxresdefault.jpg'
+    return d
 
 def date_dans_lien(lien):
     """Certains médias (Le Parisien) ne datent pas leurs flux, mais la date est dans l'adresse de l'article."""

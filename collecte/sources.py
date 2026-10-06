@@ -149,12 +149,15 @@ SOURCES = [
     ('smh', 'The Sydney Morning Herald', 'au', 'en', [('https://www.smh.com.au/rss/feed.xml', None)]),
     ('folha', 'Folha de S.Paulo', 'br', 'pt', [('https://feeds.folha.uol.com.br/emcimadahora/rss091.xml', None)]),
     ('clarin', 'Clarín', 'ar', 'es', [('https://www.clarin.com/rss/lo-ultimo/', None)]),
+    # ---------- Vidéo (flux officiels publics des chaînes YouTube, sans clé) ----------
+    ('hugodecrypte', 'HugoDécrypte', 'fr', 'fr', [('https://www.youtube.com/feeds/videos.xml?channel_id=UCAcAnMF0OrCtUep3Y4M-ZPw', None)]),
+    ('brut', 'Brut', 'fr', 'fr', [('https://www.youtube.com/feeds/videos.xml?channel_id=UCSKdvgqdnj72_SLggp7BDTg', None)]),
 ]
 
 # Médias de la liste dont le flux n'est pas accessible librement pour l'instant.
 INDISPONIBLES = ['Les Échos', 'Le Point', 'The Telegraph', 'The Times', 'USA Today', "Maclean's", 'Le Soir',
                  'DW', "L'Orient-Le Jour", 'El Universal', 'TelQuel', 'The Times of Israel',
-                 'CNN (flux public arrêté en 2023)', 'HugoDécrypte (YouTube)', 'Brut (YouTube)']
+                 'CNN (flux public arrêté en 2023)']
 
 # Marchés et entreprises (cours via Yahoo Finance pour les tests ; à remplacer par une source sous licence au lancement).
 MARCHES = [('^FCHI', 'CAC 40'), ('^GSPC', 'S&P 500'), ('^GSPTSE', 'TSX · Toronto'), ('BZ=F', 'Pétrole Brent'),
