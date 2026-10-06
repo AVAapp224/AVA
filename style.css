@@ -442,9 +442,17 @@ a.icone{color:var(--texte)}
 .guide-sur{margin-bottom:-4px}
 #reglage-pays,#reglage-themes{scroll-margin-top:24px}
 
-/* les thèmes, en haut de l'accueil : une ligne de rubriques, comme dans un journal */
-.rubriques{display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;margin-top:4px;-webkit-overflow-scrolling:touch}
-.rubriques::-webkit-scrollbar{display:none}
-.rubriques a{flex:none;display:flex;align-items:center;min-height:36px;padding:0 14px;border-left:1px solid var(--filet);font-family:var(--une);font-size:18px;line-height:1;white-space:nowrap;color:inherit;text-decoration:none}
-.rubriques a:first-child{padding-left:0;border-left:0}
-.rubriques a.plus{color:var(--doux);font-family:var(--ui);font-size:20px;font-weight:300}
+/* les thèmes, en haut de l'accueil : un ruban qui défile doucement */
+.rubriques{display:flex;align-items:center;gap:6px;margin-top:4px}
+.ruban{flex:1;min-width:0;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 90%,transparent)}
+.ruban-piste{display:flex;width:max-content;animation:ruban var(--duree,12s) linear infinite}
+.ruban-piste .copie{display:contents}
+.ruban:hover .ruban-piste,.ruban:active .ruban-piste,.ruban:focus-within .ruban-piste{animation-play-state:paused}
+@keyframes ruban{to{transform:translateX(-50%)}}
+.rubriques a{flex:none;display:flex;align-items:center;min-height:36px;padding:0 16px;border-right:1px solid var(--filet);font-family:var(--une);font-size:18px;line-height:1;white-space:nowrap;color:inherit;text-decoration:none}
+.rubriques a.plus{border:0;padding:0 0 0 8px;color:var(--doux);font-family:var(--ui);font-size:20px;font-weight:300}
+.rubriques > a.plus:only-child{font-size:14px;padding:0}
+@media (prefers-reduced-motion: reduce){.ruban{overflow-x:auto}.ruban-piste{animation:none}.ruban-piste .copie{display:none}}
+/* la pile de l'accueil : bouton « garder » dans les couleurs de l'accueil ; le cadre de fin n'apparaît qu'à la fin */
+.accueil .rond.plein{background:var(--texte);border-color:var(--texte);color:var(--fond)}
+.pile-culture:has(.une.glisse:not(.partie)) .fin-pile{visibility:hidden}

@@ -305,10 +305,19 @@ function blocEssentiel(titre, items, mode) {
     <div class="defile" data-progression>${items.map(carteUne).join('')}</div>
     <div class="progression" aria-hidden="true">${items.map((_, i) => `<span class="${i ? '' : 'on'}"></span>`).join('')}</div></section>`;
 }
-function blocPile(titre, items) {
+/* les thèmes choisis, en haut de l'accueil : un ruban qui défile doucement, en boucle (le doigt le met en pause) */
+function rubriques() {
+  const liste = prefs.themes.map(t => `<a href="#${t}">${THEMES[t].nom}</a>`).join('');
+  if (!prefs.themes.length) return `<nav class="rubriques"><a href="#reglages" data-aller="reglage-themes" class="plus">+ Choisir mes thèmes</a></nav>`;
+  const fois = Math.max(1, Math.ceil(5 / prefs.themes.length));   // assez de thèmes pour remplir la largeur
+  const moitie = liste.repeat(fois);
+  return `<nav class="rubriques" aria-label="Mes thèmes"><div class="ruban"><div class="ruban-piste" style="--duree:${prefs.themes.length * fois * 3.2}s">${moitie}<span aria-hidden="true" class="copie">${moitie}</span></div></div>
+    <a href="#reglages" data-aller="reglage-themes" class="plus" aria-label="Ajouter un thème">+</a></nav>`;
+}
+function blocPile(titre, items, fin = "Tu as vu l'essentiel de la culture aujourd'hui.") {
   return `<section style="display:flex;flex-direction:column;gap:16px"><div class="marge">${libelle(titre, `<span id="compte-pile">${items.length} infos</span>`)}</div>
     <div class="marge"><div class="pile-culture" id="pile">
-      <div class="fin-pile"><p>Tu as vu l'essentiel de la culture aujourd'hui.</p><button type="button" class="bouton-clair" id="revoir">Revoir les ${items.length} infos</button></div>
+      <div class="fin-pile"><p>${fin}</p><button type="button" class="bouton-clair" id="revoir">Revoir les ${items.length} infos</button></div>
       ${items.map(x => carteUne(x).replace('class="une"', 'class="une glisse"')).join('')}
     </div></div>
     <div class="actions-pile marge">
@@ -376,11 +385,11 @@ pages.accueil = () => {
       <h1 class="titre-app nom-app">AVA</h1>
       <span class="devise">All Views Available</span>
       <span class="maj" id="maj">Mis à jour ${ilYa(D.maj)} · ${D.nb_sources} médias</span>
-      <nav class="rubriques" aria-label="Mes thèmes">${prefs.themes.map(t => `<a href="#${t}">${THEMES[t].nom}</a>`).join('')}<a href="#reglages" data-aller="reglage-themes" class="plus" aria-label="Ajouter un thème">+</a></nav>
+      ${rubriques()}
       <div class="filet"></div></header>
     <section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle('Mes pays', AJOUTER('reglage-pays'))}
       <nav class="pays" aria-label="Mes pays">${prefs.pays.map(p => `<a href="#pays-${p}" class="tuile"><img src="${esc(photoPays(p))}" alt=""><div><strong>${esc(nomPays(p))}</strong><small>${(c.pays || {})[p] || ''}</small></div></a>`).join('')}</nav></section>
-    ${blocEssentiel("L'actualité du jour", e.une, 'defile')}
+    ${blocPile("L'actualité du jour", avecPhoto(e.une).filter(nouveau), "Tu as vu l'essentiel du jour. À demain matin.")}
     ${blocFil('accueil', fil, "Au fil de l'actu")}
     <p class="pied marge">Tu es à jour. À demain matin.</p>` };
 };
