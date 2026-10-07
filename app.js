@@ -123,7 +123,9 @@ function inscrire(x) { registre.set(x.id, x); return x.id; }
 
 /* Règle d'or : tout article est une photo. Si une photo ne s'affiche pas, l'article disparaît plutôt que d'apparaître sans image. */
 /* les photos passent par un service gratuit qui les réduit à la taille de l'écran : chargement bien plus rapide */
-const reduite = (u, l = 720) => `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${l}&q=72&output=webp`;
+// « we » : jamais agrandie au-delà de sa vraie taille (une photo étirée devient floue)
+const reduite = (u, l = 900) => `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${l}&we&q=80&output=webp`;
+const LARGEURS = { g: 1200, v: 800, p: 600 };   // assez de pixels pour un écran de téléphone net (×3)
 function photo(x, alt, l) {
   if (!x.image) return '';
   return `<img src="${esc(reduite(x.image, l))}" data-original="${esc(x.image)}" alt="${esc(alt || '')}" decoding="async" referrerpolicy="no-referrer" onerror="sansPhoto(this)">`;
@@ -161,12 +163,12 @@ function lireChez(x) {
 }
 function carteUne(x) {
   inscrire(x);
-  return `<article class="une" data-ouvrir="${esc(x.id)}">${photo(x, x.titre)}
+  return `<article class="une" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, 1200)}
     <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3>${lireChez(x)}</div></article>`;
 }
 function bande(x) {
   inscrire(x);
-  return `<a href="${esc(x.lien)}" class="bande" data-ouvrir="${esc(x.id)}">${photo(x, x.titre)}
+  return `<a href="${esc(x.lien)}" class="bande" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, 1200)}
     <span class="source">${esc(x.source)}</span>${nbAutres(x)}
     <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3></div></a>`;
 }
@@ -182,17 +184,30 @@ function nbAutres(x) {
 }
 function carte(x, taille, etiquette) {
   inscrire(x);
-  return `<a href="${esc(x.lien)}" class="carte ${taille}" data-ouvrir="${esc(x.id)}">${photo(x, x.titre)}
+  return `<a href="${esc(x.lien)}" class="carte ${taille}" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, LARGEURS[taille])}
     <span class="source">${esc(x.source)}</span>${etiquette ? `<span class="pays-tag">${esc(etiquette)}</span>` : nbAutres(x)}
     <div class="voile">${lieu(x)}<h3>${titre(x)}</h3></div></a>`;
 }
 
-/* la mosaïque du fil, d'après le croquis : une grande en largeur, puis une verticale et deux petites (en miroir une fois sur deux) */
+/* la mosaïque du fil, d'après le croquis : une grande en largeur, puis une verticale et deux petites (en miroir une fois sur deux).
+   Chaque photo prend la place qui lui va : la plus grande et la plus nette, en largeur, devient la grande carte ;
+   une photo en hauteur prend la verticale ; les plus petites prennent les petites cases. */
+const NOTE_QUALITE = { haute: 2, moyenne: 1, basse: 0 };
+function placer(groupe) {
+  const q = x => NOTE_QUALITE[x.qualite] ?? 1;
+  const pourGrande = x => q(x) * 1.5 + (x.format ? (x.format >= 1.3 ? 1 : x.format < 1 ? -1.5 : 0) : 0);
+  const pourHaute = x => q(x) + (x.format ? (x.format < 1 ? 2 : x.format < 1.4 ? 0.8 : 0) : 0.4);
+  const reste = groupe.slice();
+  const prendre = note => reste.splice(reste.reduce((m, x, k) => note(x) > note(reste[m]) ? k : m, 0), 1)[0];
+  const g = prendre(pourGrande);
+  const v = reste.length ? prendre(pourHaute) : undefined;
+  return [g, v, ...reste];
+}
 function mosaique(items) {
   items = avecPhoto(items);
   let html = '';
   for (let i = 0, bloc = 0; i < items.length; i += 4, bloc++) {
-    const [g, v, p1, p2] = items.slice(i, i + 4);
+    const [g, v, p1, p2] = placer(items.slice(i, i + 4));
     if (g) html += carte(g, 'g');
     if (v && p1 && p2) {
       const col = `<div class="colonne">${carte(p1, 'p')}${carte(p2, 'p')}</div>`;

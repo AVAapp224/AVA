@@ -631,8 +631,9 @@ def carte(a):
                 vus.add(x['source'])
                 autres.append({'nom': x['source'], 'lien': x['lien'], 'titre': x['titre']})
     images = list(dict.fromkeys([a['image']] + ([x['image'] for x in g['articles'] if x['image']] if g else [])))
-    images = [i for i in images if i][:4]
-    return dict(id=a['id'], titre=a['titre'], resume=a['resume'], image=images[0] if images else None, images=images, gras=gras(a['titre']),
+    images = [i for i in images if i][:8]
+    liens = list(dict.fromkeys([a['lien']] + ([x['lien'] for x in g['articles']] if g else [])))[:4]
+    return dict(liens=liens, id=a['id'], titre=a['titre'], resume=a['resume'], image=images[0] if images else None, images=images, gras=gras(a['titre']),
                 lien=a['lien'], source=a['source'], date=iso(a['date']), lieu=a.get('lieu'), theme=a['theme'], rubrique=THEMES.get(a['theme'], 'Actualité'), pays=a['pays'],
                 langue=a['langue'], autres=autres[:6], imp=round(importance_monde(g), 3) if g else 0.5)
 
@@ -864,16 +865,44 @@ def image_affichable(url):
 NOTER = os.path.join(ICI, 'photos', 'noter')   # outil macOS : visages et note esthétique
 
 def attrait(n):
-    """Plus c'est haut, plus la photo donne envie. Un gros plan sur un visage est fortement pénalisé."""
+    """Plus c'est haut, plus la photo donne envie : belle, nette, grande. Un gros plan sur un visage est fortement pénalisé."""
     if not n:
         return 0.0
     s = n.get('beaute', 0)
     s -= 12 * max(0.0, n.get('visage', 0) - 0.02)         # au-delà de 2 % de l'image, un visage pèse de plus en plus
     if n.get('utilitaire'):
         s -= 0.15
-    if n.get('largeur', 1000) < 400:
-        s -= 0.3
+    l = n.get('largeur', 800)
+    s += 0.3 if l >= 1200 else 0.2 if l >= 900 else 0.0 if l >= 640 else -0.4 if l >= 400 else -0.9
+    net = n.get('nettete')
+    if net is not None:
+        s += -0.8 if net < NET_FLOU else -0.3 if net < NET_MOYEN else 0.1
     return s
+
+NET_FLOU, NET_MOYEN = 200, 600     # contour de la zone la plus nette (photo réduite à 640 px) : sous 200 floue, dès 600 bien nette
+
+def qualite(n):
+    """« haute » : grande et nette, digne d'une grande carte ; « basse » : petite ou floue, on l'évite."""
+    if not n:
+        return None
+    l, net = n.get('largeur', 0), n.get('nettete')
+    if l < 480 or (net is not None and net < NET_FLOU):
+        return 'basse'
+    if l >= 900 and (net is None or net >= NET_MOYEN) and not n.get('utilitaire'):
+        return 'haute'
+    return 'moyenne'
+
+def agrandir(u):
+    """Les flux donnent souvent une vignette : on devine l'adresse de la même photo en grand."""
+    v = []
+    g = re.sub(r'(ichef\.bbci\.co\.uk/(?:ace/standard|ace/ws|news))/\d+/', r'\1/1024/', u)
+    if g != u: v.append(g)
+    g = re.sub(r'-\d{2,4}x\d{2,4}(\.(?:jpe?g|png|webp))(\?|$)', r'\1\2', u)      # WordPress : photo-300x200.jpg
+    if g != u: v.append(g)
+    if not re.search(r'[?&](s|sig|signature|token)=', u):                          # tailles en paramètre, sans signature
+        g = re.sub(r'([?&](?:w|width|resize|imwidth)=)\d{2,3}(?=&|$)', r'\g<1>1200', u)
+        if g != u: v.append(g)
+    return v
 
 def gros_plan(n):
     return bool(n) and n.get('visage', 0) >= 0.035      # Ines ne veut pas de visages en gros plan
@@ -887,7 +916,7 @@ class Photos:
 
     def noter(self, urls):
         """Télécharge les nouvelles photos et les fait noter par l'outil macOS (ignoré ailleurs)."""
-        urls = [u for u in dict.fromkeys(urls) if u and u not in self.notes and self.ok.get(u)]
+        urls = [u for u in dict.fromkeys(urls) if u and 'nettete' not in self.notes.get(u, {}) and self.ok.get(u)]   # nouvelles, ou notées avant la mesure de netteté
         if not urls or not os.path.exists(NOTER):
             return
         import tempfile
@@ -926,11 +955,19 @@ class Photos:
                     for u, c in lot:
                         j = par_fichier.get(c)
                         if j and not j.get('erreur'):
-                            self.notes[u] = {k: j[k] for k in ('visage', 'visages', 'beaute', 'utilitaire', 'largeur', 'hauteur')}
+                            self.notes[u] = {k: j[k] for k in ('visage', 'visages', 'beaute', 'utilitaire', 'largeur', 'hauteur', 'nettete') if k in j}
             ecrire_json(os.path.join(ETAT, 'photos-notes.json'), self.notes)
 
     def choisir(self, elements):
-        """Pour chaque article, garde la plus belle des photos disponibles (celles de tous les médias qui en parlent)."""
+        """Pour chaque article, garde la plus belle et la plus nette des photos disponibles : celles de tous les médias
+        qui en parlent, la grande photo de leur page d'article, et la version agrandie des vignettes."""
+        a_lire = [l for x in elements for l in x.get('liens', []) if l not in self.og]
+        with Parallele(24) as ex:
+            for l, img in zip(a_lire, ex.map(og_image, a_lire)):
+                self.og[l] = img
+        for x in elements:
+            imgs = [i for i in x.get('images', []) if i] + [self.og.get(l) for l in x.get('liens', []) if self.og.get(l)]
+            x['images'] = list(dict.fromkeys(imgs + [g for i in imgs for g in agrandir(i)]))
         candidates = [i for x in elements for i in x.get('images', []) if i]
         a_tester = [u for u in dict.fromkeys(candidates) if u not in self.ok]
         with Parallele(32) as ex:
@@ -944,7 +981,11 @@ class Photos:
             if options:
                 meilleure = max(options, key=lambda i: attrait(self.notes.get(i)))
                 x['image'] = meilleure
-            x['gros_plan'] = gros_plan(self.notes.get(x.get('image')))
+            n = self.notes.get(x.get('image'))
+            x['gros_plan'] = gros_plan(n)
+            x['qualite'] = qualite(n)
+            if n and n.get('largeur') and n.get('hauteur'):
+                x['format'] = round(n['largeur'] / n['hauteur'], 2)     # > 1 : en largeur ; < 1 : en hauteur
             x.pop('images', None)
 
     def illustrer(self, elements):
@@ -979,9 +1020,14 @@ class Photos:
         self.choisir(liste[:analyser] if analyser else liste)
         for x in liste:
             x.pop('images', None)
+            x.pop('liens', None)
         out = [x for x in liste if x.get('image')]
-        if preferer_sans_gros_plan:   # pour l'essentiel : un sujet en gros plan passe après les autres
-            out = sorted(out, key=lambda x: x.get('gros_plan', False))
+        if preferer_sans_gros_plan:   # pour l'essentiel : un sujet en gros plan ou en photo floue passe après les autres
+            out = sorted(out, key=lambda x: (x.get('gros_plan', False), x.get('qualite') == 'basse'))
+        else:                         # dans les fils : une photo petite ou floue n'est pas montrée, s'il reste assez d'articles
+            nettes = [x for x in out if x.get('qualite') != 'basse']
+            if len(nettes) >= min(len(out), n or len(out)) * 0.6:
+                out = nettes
         return out[:n] if n else out
 
     def sauver(self):
@@ -1091,9 +1137,9 @@ def lancer():
     fils = dict(accueil=fil_monde(groupes, 130, essentiel['une']),
                 themes={t: fil(articles, lambda a, t=t: a['theme'] == t and (t in a['indices'] or not a['indices']), 80, essentiel['themes'].get(t, [])) for t in THEMES},
                 pays={p: fil(articles, lambda a, p=p: article_du_pays(a, p), 60, essentiel['pays'].get(p, [])) for p in PAYS_SUIVIS})
-    fils = dict(accueil=photos.garder(fils['accueil'], 90, analyser=48),
-                themes={t: photos.garder(l, 60, analyser=24) for t, l in fils['themes'].items()},
-                pays={p: photos.garder(l, 60, analyser=24) for p, l in fils['pays'].items()})
+    fils = dict(accueil=photos.garder(fils['accueil'], 90, analyser=110),
+                themes={t: photos.garder(l, 60, analyser=70) for t, l in fils['themes'].items()},
+                pays={p: photos.garder(l, 60, analyser=70) for p, l in fils['pays'].items()})
 
     marches, societes = bourse(articles)
     for s_ in societes:
