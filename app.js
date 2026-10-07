@@ -125,7 +125,7 @@ function inscrire(x) { registre.set(x.id, x); return x.id; }
 /* les photos passent par un service gratuit qui les réduit à la taille de l'écran : chargement bien plus rapide */
 // « we » : jamais agrandie au-delà de sa vraie taille (une photo étirée devient floue)
 const reduite = (u, l = 900) => `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${l}&we&q=80&output=webp`;
-const LARGEURS = { g: 1200, m: 800 };   // assez de pixels pour un écran de téléphone net (×3)
+const LARGEURS = { g: 1200, v: 800, p: 600 };   // assez de pixels pour un écran de téléphone net (×3)
 function photo(x, alt, l) {
   if (!x.image) return '';
   return `<img src="${esc(reduite(x.image, l))}" data-original="${esc(x.image)}" alt="${esc(alt || '')}" decoding="async" referrerpolicy="no-referrer" onerror="sansPhoto(this)">`;
@@ -178,30 +178,37 @@ function nbAutres(x) {
 }
 function carte(x, taille, etiquette) {
   inscrire(x);
-  // la photo seule, puis le titre en dessous, posé sur la page comme dans un magazine
-  return `<a href="${esc(x.lien)}" class="carte ${taille}" data-ouvrir="${esc(x.id)}"><span class="cadre">${photo(x, x.titre, LARGEURS[taille] || 800)}
-    ${etiquette ? `<span class="pays-tag">${esc(etiquette)}</span>` : ''}</span>
-    <span class="texte">${lieu(x)}<h3>${titre(x)}</h3></span></a>`;
+  return `<a href="${esc(x.lien)}" class="carte ${taille}" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, LARGEURS[taille])}
+    ${etiquette ? `<span class="pays-tag">${esc(etiquette)}</span>` : ''}
+    <div class="voile">${lieu(x)}<h3>${titre(x)}</h3></div></a>`;
 }
 
-/* le fil : une grande photo en largeur, puis deux photos côte à côte, et ainsi de suite.
-   La plus grande et la plus nette des trois, en largeur, prend la grande place. */
+/* la mosaïque du fil, d'après le croquis : une grande en largeur, puis une verticale et deux petites (en miroir une fois sur deux).
+   Chaque photo prend la place qui lui va : la plus grande et la plus nette, en largeur, devient la grande carte ;
+   une photo en hauteur prend la verticale ; les plus petites prennent les petites cases. */
 const NOTE_QUALITE = { haute: 2, moyenne: 1, basse: 0 };
 function placer(groupe) {
   const q = x => NOTE_QUALITE[x.qualite] ?? 1;
   const pourGrande = x => q(x) * 1.5 + (x.format ? (x.format >= 1.3 ? 1 : x.format < 1 ? -1.5 : 0) : 0);
+  const pourHaute = x => q(x) + (x.format ? (x.format < 1 ? 2 : x.format < 1.4 ? 0.8 : 0) : 0.4);
   const reste = groupe.slice();
-  const g = reste.splice(reste.reduce((m, x, k) => pourGrande(x) > pourGrande(reste[m]) ? k : m, 0), 1)[0];
-  return [g, ...reste];
+  const prendre = note => reste.splice(reste.reduce((m, x, k) => note(x) > note(reste[m]) ? k : m, 0), 1)[0];
+  const g = prendre(pourGrande);
+  const v = reste.length ? prendre(pourHaute) : undefined;
+  return [g, v, ...reste];
 }
 function mosaique(items) {
   items = avecPhoto(items);
   let html = '';
-  for (let i = 0; i < items.length; i += 3) {
-    const [g, m1, m2] = placer(items.slice(i, i + 3));
-    html += carte(g, 'g');
-    if (m1 && m2) html += `<div class="paire">${carte(m1, 'm')}${carte(m2, 'm')}</div>`;
-    else if (m1) html += carte(m1, 'g');
+  for (let i = 0, bloc = 0; i < items.length; i += 4, bloc++) {
+    const [g, v, p1, p2] = placer(items.slice(i, i + 4));
+    if (g) html += carte(g, 'g');
+    if (v && p1 && p2) {
+      const col = `<div class="colonne">${carte(p1, 'p')}${carte(p2, 'p')}</div>`;
+      html += `<div class="rang">${bloc % 2 ? col + carte(v, 'v') : carte(v, 'v') + col}</div>`;
+    } else {
+      [v, p1, p2].filter(Boolean).forEach(x => { html += carte(x, 'g'); });
+    }
   }
   return html;
 }

@@ -483,23 +483,3 @@ a.icone{color:var(--texte)}
 .medias-fiche a.premier{background:#141414;border-color:#141414;color:#fff}
 .medias-fiche a svg{width:14px;height:14px}
 .fiche{will-change:transform}
-
-/* le fil, version magazine : la photo seule, le titre posé dessous ; pas de petites cases */
-.carte{display:flex;flex-direction:column;gap:10px;height:auto!important;border-radius:0;overflow:visible;background:none;isolation:auto;flex:initial}
-.carte .cadre{position:relative;display:block;width:100%;border-radius:22px;overflow:hidden;background:var(--filet);isolation:isolate}
-.carte .cadre img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.carte .texte{display:flex;flex-direction:column;gap:5px;padding:0 4px;color:var(--texte)}
-.carte .texte .lieu{display:block;font-family:var(--ui);font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--doux)}
-.carte h3{-webkit-line-clamp:3}
-.carte.g .cadre{height:300px}.carte.g h3{font-size:23px;line-height:1.15}
-.carte.m .cadre{height:230px}.carte.m h3{font-size:17px;line-height:1.2;-webkit-line-clamp:4}
-.paire{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
-.fil{gap:26px}
-.duo .carte .cadre{height:200px}.duo .carte h3{font-size:16px;-webkit-line-clamp:4}
-@media (min-width: 900px){
-  .carte.g .cadre{height:340px}.carte.g h3{font-size:24px}
-  .carte.m .cadre{height:250px}
-  .paire{gap:16px}
-}
-/* la pile du jour : le texte n'est plus une boîte posée sur la photo, il forme le bas de la carte */
-.une .voile{left:0;right:0;bottom:-1px;border-radius:0;padding:18px 20px 21px;background:#F7F4EE;backdrop-filter:none;-webkit-backdrop-filter:none}
