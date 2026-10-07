@@ -440,7 +440,6 @@ a.icone{color:var(--texte)}
 .guide-action{align-self:center}
 .guide-page .devise{margin-top:-4px}
 .guide-sur{margin-bottom:-4px}
-#reglage-pays,#reglage-themes{scroll-margin-top:24px}
 
 /* les thèmes, en haut de l'accueil : un ruban qui défile doucement */
 .rubriques{display:flex;align-items:center;gap:6px;margin-top:4px}
@@ -456,3 +455,8 @@ a.icone{color:var(--texte)}
 /* la pile de l'accueil : bouton « garder » dans les couleurs de l'accueil ; le cadre de fin n'apparaît qu'à la fin */
 .accueil .rond.plein{background:var(--texte);border-color:var(--texte);color:var(--fond)}
 .pile-culture:has(.une.glisse:not(.partie)) .fin-pile{visibility:hidden}
+.ecran.reglages .themes{display:flex;flex-direction:column;border-top:1px solid var(--filet)}
+.ecran.reglages .theme strong{font-size:28px}
+.ecran.reglages .theme span{text-align:right}
+.ecran.reglages{min-height:100dvh}
+.resume-reglage{font-style:normal;font-variant-numeric:normal;max-width:16ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

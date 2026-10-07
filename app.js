@@ -278,8 +278,7 @@ function observerVues() {
 }
 
 /* ------------------------------------------------------------------ blocs de page */
-const AJOUTER = cible => `<a href="#reglages" data-aller="${cible}">+ Ajouter</a>`;
-let cibleReglage = null;   // la section des réglages à montrer en arrivant (« + Ajouter » de l'accueil)
+const AJOUTER = page => `<a href="#${page}">+ Ajouter</a>`;
 function libelle(gauche, droite) {
   return `<div class="libelle"><span>${gauche}</span>${droite ? `<span>${droite}</span>` : ''}</div>`;
 }
@@ -308,11 +307,11 @@ function blocEssentiel(titre, items, mode) {
 /* les thèmes choisis, en haut de l'accueil : un ruban qui défile doucement, en boucle (le doigt le met en pause) */
 function rubriques() {
   const liste = prefs.themes.map(t => `<a href="#${t}">${THEMES[t].nom}</a>`).join('');
-  if (!prefs.themes.length) return `<nav class="rubriques"><a href="#reglages" data-aller="reglage-themes" class="plus">+ Choisir mes thèmes</a></nav>`;
+  if (!prefs.themes.length) return `<nav class="rubriques"><a href="#reglages-themes" class="plus">+ Choisir mes thèmes</a></nav>`;
   const fois = Math.max(1, Math.ceil(5 / prefs.themes.length));   // assez de thèmes pour remplir la largeur
   const moitie = liste.repeat(fois);
   return `<nav class="rubriques" aria-label="Mes thèmes"><div class="ruban"><div class="ruban-piste" style="--duree:${prefs.themes.length * fois * 3.2}s">${moitie}<span aria-hidden="true" class="copie">${moitie}</span></div></div>
-    <a href="#reglages" data-aller="reglage-themes" class="plus" aria-label="Ajouter un thème">+</a></nav>`;
+    <a href="#reglages-themes" class="plus" aria-label="Ajouter un thème">+</a></nav>`;
 }
 function blocPile(titre, items, fin = "Tu as vu l'essentiel de la culture aujourd'hui.") {
   return `<section style="display:flex;flex-direction:column;gap:16px"><div class="marge">${libelle(titre, `<span id="compte-pile">${items.length} infos</span>`)}</div>
@@ -387,7 +386,7 @@ pages.accueil = () => {
       <span class="maj" id="maj">Mis à jour ${ilYa(D.maj)} · ${D.nb_sources} médias</span>
       ${rubriques()}
       <div class="filet"></div></header>
-    <section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle('Mes pays', AJOUTER('reglage-pays'))}
+    <section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle('Mes pays', AJOUTER('reglages-pays'))}
       <nav class="pays" aria-label="Mes pays">${prefs.pays.map(p => `<a href="#pays-${p}" class="tuile"><img src="${esc(photoPays(p))}" alt=""><div><strong>${esc(nomPays(p))}</strong><small>${(c.pays || {})[p] || ''}</small></div></a>`).join('')}</nav></section>
     ${blocPile("L'actualité du jour", avecPhoto(e.une).filter(nouveau), "Tu as vu l'essentiel du jour. À demain matin.")}
     ${blocFil('accueil', fil, "Au fil de l'actu")}
@@ -562,45 +561,71 @@ function appris() {
   return { plus: plus.slice(0, 8).map(p => p[1]), moins: moins.slice(0, 8).map(p => p[1]), total };
 }
 
+/* Réglages : une page sobre, une ligne par réglage ; chaque ligne ouvre sa propre page */
+const RETOUR_REGLAGES = RETOUR.replace('#accueil', '#reglages').replace('Accueil</a>', 'Réglages</a>');
+const COULEURS = [['encre', 'Bleu encre'], ['papier', 'Papier'], ['sapin', 'Vert sapin']];
+const pastille = (attr, val, actif, texte) => `<button type="button" ${attr}="${esc(val)}" aria-pressed="${actif}">${esc(texte)}</button>`;
+const resumeListe = (l, vide) => !l.length ? vide : l.length <= 2 ? l.join(', ') : `${l.slice(0, 2).join(', ')} +${l.length - 2}`;
+function pageReglage(titre, chapo, contenu) {
+  return { classe: 'ecran accueil reglages', theme: prefs.couleur, html: `
+    <header class="entete marge">
+      <div class="barre">${RETOUR_REGLAGES}</div>
+      <h1 class="titre-app">${titre}</h1>
+      ${chapo ? `<p class="chapo-theme">${chapo}</p>` : ''}
+      <div class="filet"></div></header>
+    ${contenu}` };
+}
+
 pages.reglages = () => {
-  const groupes = {};
-  (D.medias || []).forEach(m => { (groupes[m.pays] = groupes[m.pays] || []).push(m.nom); });
-  const ordre = ['fr', 'ca', 'uk', 'us', 'intl', 'be', 'ch', 'de', 'es', 'it', 'ua', 'in', 'jp', 'hk', 'sg', 'th', 'au', 'il', 'za', 'ng', 'afr', 'ar', 'br'];
-  const pays = Object.keys(groupes).sort((a, b) => (ordre.indexOf(a) + 99) % 99 - (ordre.indexOf(b) + 99) % 99);
-  const a = appris();
-  const pastille = (attr, val, actif, texte) => `<button type="button" ${attr}="${esc(val)}" aria-pressed="${actif}">${esc(texte)}</button>`;
+  const n = (prefs.medias || []).length;
+  const ligne = (lien, nom, resume) => `<a href="#${lien}" class="theme"><strong>${nom}</strong><span><em class="resume-reglage">${esc(resume)}</em>${FLECHE}</span></a>`;
   return { classe: 'ecran accueil reglages', theme: prefs.couleur, html: `
     <header class="entete marge">
       <div class="barre">${RETOUR}</div>
       <h1 class="titre-app">Réglages</h1>
-      <p class="chapo-theme">Tout ce que tu choisis ici reste sur ton téléphone.</p>
-      <div class="filet"></div></header>
+      <p class="chapo-theme">Tout ce que tu choisis ici reste sur ton téléphone.</p></header>
+    <nav class="themes marge" aria-label="Réglages">
+      ${ligne('reglages-pays', 'Mes pays', resumeListe(prefs.pays.map(nomPays), 'Aucun'))}
+      ${ligne('reglages-themes', 'Mes thèmes', resumeListe(prefs.themes.map(t => THEMES[t].nom), 'Aucun'))}
+      ${ligne('reglages-medias', 'Médias préférés', n ? `${n} choisi${n > 1 ? 's' : ''}` : 'Aucun')}
+      ${ligne('reglages-couleur', 'Couleur', (COULEURS.find(c => c[0] === prefs.couleur) || COULEURS[0])[1])}
+      ${ligne('reglages-appris', 'Ce qu\'AVA a appris', '')}
+    </nav>
+    <div class="marge"><button type="button" class="voir-plus" id="revoir-guide">Revoir le guide de démarrage</button></div>
+    <p class="pied marge">AVA lit ${D.nb_sources} médias. Ton fil reste mondial : tes habitudes changent seulement l'ordre et le dosage.</p>` };
+};
 
-    <section class="marge bloc-reglage">${libelle('Couleur de l\'accueil')}
-      <div class="envies">${[['encre', 'Bleu encre'], ['papier', 'Papier'], ['sapin', 'Vert sapin']].map(([v, t]) => pastille('data-couleur', v, prefs.couleur === v, t)).join('')}</div></section>
+pages['reglages-pays'] = () => pageReglage('Mes pays', 'Chaque pays choisi a sa propre page, à part de l\'accueil.',
+  `<section class="marge bloc-reglage"><div class="envies">${paysProposes().map(k => pastille('data-pays', k, prefs.pays.includes(k), nomPays(k))).join('')}</div></section>`);
 
-    <section class="marge bloc-reglage" id="reglage-pays">${libelle('Mes pays')}
-      <div class="envies">${paysProposes().map(k => pastille('data-pays', k, prefs.pays.includes(k), nomPays(k))).join('')}</div></section>
+pages['reglages-themes'] = () => pageReglage('Mes thèmes', 'Ils défilent en haut de l\'accueil. Chacun a sa propre page.',
+  `<section class="marge bloc-reglage"><div class="envies">${Object.entries(THEMES).map(([k, t]) => pastille('data-mon-theme', k, prefs.themes.includes(k), t.nom)).join('')}</div></section>`);
 
-    <section class="marge bloc-reglage" id="reglage-themes">${libelle('Mes thèmes')}
-      <div class="envies">${Object.entries(THEMES).map(([k, t]) => pastille('data-mon-theme', k, prefs.themes.includes(k), t.nom)).join('')}</div></section>
+pages['reglages-couleur'] = () => pageReglage('Couleur', 'La couleur de ton accueil.',
+  `<section class="marge bloc-reglage"><div class="envies">${COULEURS.map(([v, t]) => pastille('data-couleur', v, prefs.couleur === v, t)).join('')}</div></section>`);
 
-    <section class="marge bloc-reglage">${libelle('Mes médias préférés', `<span id="nb-medias">${(prefs.medias || []).length} choisi${(prefs.medias || []).length > 1 ? 's' : ''}</span>`)}
-      <p class="precision">Ils passent devant dans ton fil. Les autres médias restent là, juste un peu plus bas.</p>
+pages['reglages-medias'] = () => {
+  const groupes = {};
+  (D.medias || []).forEach(m => { (groupes[m.pays] = groupes[m.pays] || []).push(m.nom); });
+  const ordre = ['fr', 'ca', 'uk', 'us', 'intl', 'be', 'ch', 'de', 'es', 'it', 'ua', 'in', 'jp', 'hk', 'sg', 'th', 'au', 'il', 'za', 'ng', 'afr', 'ar', 'br'];
+  const pays = Object.keys(groupes).sort((a, b) => (ordre.indexOf(a) + 99) % 99 - (ordre.indexOf(b) + 99) % 99);
+  return pageReglage('Médias préférés', 'Ils passent devant dans ton fil. Les autres restent là, juste un peu plus bas.', `
+    <section class="marge bloc-reglage">${libelle('Tes choix', `<span id="nb-medias">${(prefs.medias || []).length} choisi${(prefs.medias || []).length > 1 ? 's' : ''}</span>`)}
       <label class="recherche-medias"><span class="sr">Chercher un média</span><input id="cherche-media" type="search" placeholder="Chercher un média…" autocomplete="off"></label>
       ${pays.map(p => `<div class="groupe-medias" data-groupe><h3>${esc(NOMS_PAYS_MEDIAS[p] || p)}</h3>
         <div class="envies">${groupes[p].map(n => pastille('data-media', n, (prefs.medias || []).includes(n), n)).join('')}</div></div>`).join('')}
-    </section>
+    </section>`);
+};
 
-    <section class="marge bloc-reglage">${libelle('Ce qu\'AVA a appris de toi')}
-      ${a.total < 30 ? `<p class="precision">AVA apprend en te regardant lire : encore quelques visites et tu verras ici ce que tu préfères.</p>` : `
+pages['reglages-appris'] = () => {
+  const a = appris();
+  return pageReglage('Ce qu\'AVA a appris', 'AVA compare ce que tu ouvres à ce que tu fais défiler. Tout reste sur ton téléphone.', `
+    <section class="marge bloc-reglage">
+      ${a.total < 30 ? `<p class="precision">Encore quelques visites et tu verras ici ce que tu préfères.</p>` : `
       <div class="appris"><div><h3>Tu lis plus</h3><p>${a.plus.join(' · ') || '—'}</p></div>
       <div><h3>Tu lis moins</h3><p>${a.moins.join(' · ') || '—'}</p></div></div>`}
       <button type="button" class="voir-plus" id="effacer-habitudes">Effacer mes habitudes de lecture</button>
-    </section>
-    <section class="marge bloc-reglage">${libelle('Aide')}
-      <button type="button" class="voir-plus" id="revoir-guide">Revoir le guide de démarrage</button></section>
-    <p class="pied marge">AVA lit ${D.nb_sources} médias. Ton fil reste mondial : tes habitudes changent seulement l'ordre et le dosage.</p>` };
+    </section>`);
 };
 
 function activerReglages() {
@@ -616,7 +641,7 @@ function activerReglages() {
   const rg = $('#revoir-guide');
   if (rg) rg.addEventListener('click', ouvrirGuide);
   const eff = $('#effacer-habitudes');
-  if (eff) eff.addEventListener('click', () => { prefs.habitudes = null; prefs.lectures = {}; habitudes(); sauver(); afficher('reglages', true); montrer('Habitudes effacées. AVA recommence à apprendre.'); });
+  if (eff) eff.addEventListener('click', () => { prefs.habitudes = null; prefs.lectures = {}; habitudes(); sauver(); afficher(vueCourante, true); montrer('Habitudes effacées. AVA recommence à apprendre.'); });
 }
 
 /* ------------------------------------------------------------------ le guide de démarrage (4 pages, au premier lancement) */
@@ -737,12 +762,7 @@ function afficher(nom, garderPosition) {
   if (!garderPosition) window.scrollTo(0, 0);
   activer();
   observerVues();
-  if (nom === 'reglages') activerReglages();
-  if (nom === 'reglages' && cibleReglage) {
-    const el = document.getElementById(cibleReglage);
-    cibleReglage = null;
-    if (el) el.scrollIntoView({ block: 'start' });
-  }
+  if (nom.startsWith('reglages')) activerReglages();
 }
 window.addEventListener('hashchange', () => afficher(location.hash.slice(1) || 'accueil'));
 
@@ -844,7 +864,7 @@ document.addEventListener('click', e => {
     return;
   }
   const couleur = e.target.closest('[data-couleur]');
-  if (couleur) { prefs.couleur = couleur.dataset.couleur; sauver(); afficher('reglages', true); return; }
+  if (couleur) { prefs.couleur = couleur.dataset.couleur; sauver(); afficher(vueCourante, true); return; }
   const paysB = e.target.closest('[data-pays]');
   if (paysB) {
     const k = paysB.dataset.pays;
@@ -857,8 +877,6 @@ document.addEventListener('click', e => {
     prefs.themes = Object.keys(THEMES).filter(t => t === k ? !prefs.themes.includes(k) : prefs.themes.includes(t));
     sauver(); monTheme.setAttribute('aria-pressed', prefs.themes.includes(k)); return;
   }
-  const aller = e.target.closest('[data-aller]');
-  if (aller) cibleReglage = aller.dataset.aller;
   const media = e.target.closest('[data-media]');
   if (media) {
     const n = media.dataset.media;
