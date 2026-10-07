@@ -6,9 +6,9 @@
     color-scheme:dark;
   }
   /* Couleurs de l'accueil, au choix dans les réglages */
-  .accueil[data-theme="encre"]{--fond:#14213A;--texte:#F2EEE5;--doux:rgba(242,238,229,.62);--filet:rgba(242,238,229,.16);--voile:rgba(250,248,243,.9);--encre:#121B2E}
-  .accueil[data-theme="papier"]{--fond:#F5F5F2;--texte:#14213A;--doux:rgba(20,33,58,.58);--filet:rgba(20,33,58,.14);--voile:rgba(255,255,255,.92);--encre:#121B2E}
-  .accueil[data-theme="sapin"]{--fond:#16302A;--texte:#F2EEE5;--doux:rgba(242,238,229,.62);--filet:rgba(242,238,229,.16);--voile:rgba(250,248,243,.9);--encre:#14241F}
+  .accueil[data-theme="encre"]{--or:#D9AE5B;--fond:#14213A;--texte:#F2EEE5;--doux:rgba(242,238,229,.62);--filet:rgba(242,238,229,.16);--voile:rgba(250,248,243,.9);--encre:#121B2E}
+  .accueil[data-theme="papier"]{--or:#B8862E;--fond:#F5F5F2;--texte:#14213A;--doux:rgba(20,33,58,.58);--filet:rgba(20,33,58,.14);--voile:rgba(255,255,255,.92);--encre:#121B2E}
+  .accueil[data-theme="sapin"]{--or:#D9AE5B;--fond:#16302A;--texte:#F2EEE5;--doux:rgba(242,238,229,.62);--filet:rgba(242,238,229,.16);--voile:rgba(250,248,243,.9);--encre:#14241F}
   /* Bourse : noir */
   .bourse{--fond:#0B0B0C;--texte:#F2F0EA;--doux:rgba(242,240,234,.58);--filet:rgba(242,240,234,.13);--grille:rgba(242,240,234,.05);--carte:#151517;--carte-2:#1C1C1F;--voile:rgba(250,248,243,.9);--encre:#141414;--hausse:#46C283;--baisse:#FF6B5E}
 
@@ -459,3 +459,10 @@ a.icone{color:var(--texte)}
 .ecran.reglages .theme span{text-align:right}
 .ecran.reglages{min-height:100dvh}
 .resume-reglage{font-style:normal;font-variant-numeric:normal;max-width:16ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* le logo : monogramme « Nuit » */
+.monogramme{display:inline-block;font-family:var(--titre);font-weight:400;font-style:normal;letter-spacing:0;line-height:.9}
+.monogramme i{font-style:italic;color:var(--or,#D9AE5B);margin-left:-.3em}
+.nom-app{letter-spacing:0}
+.guide-nom{letter-spacing:0}
+.devise{margin-top:-4px;font-family:var(--ui);font-style:normal;font-size:10.5px;font-weight:500;letter-spacing:.32em;text-transform:uppercase;color:var(--doux)}
