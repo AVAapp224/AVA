@@ -157,25 +157,19 @@ function ligneArticle(a) {
 }
 
 /* ------------------------------------------------------------------ cartes */
-function lireChez(x) {
-  const sources = x.sources || [{ nom: x.source, lien: x.lien }];
-  return `<div class="lire"><span>Lire chez</span>${sources.slice(0, 3).map(s => `<a href="${esc(s.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.id)}">${esc(s.nom)}</a>`).join('')}${sources.length > 3 ? `<a href="#" data-ouvrir="${esc(x.id)}">+${sources.length - 3}</a>` : ''}</div>`;
-}
 function carteUne(x) {
   inscrire(x);
   return `<article class="une" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, 1200)}
-    <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3>${lireChez(x)}</div></article>`;
+    <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3></div></article>`;
 }
 function bande(x) {
   inscrire(x);
   return `<a href="${esc(x.lien)}" class="bande" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, 1200)}
-    <span class="source">${esc(x.source)}</span>${nbAutres(x)}
     <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3></div></a>`;
 }
 function affiche(x) {
   inscrire(x);
   return `<a href="${esc(x.lien)}" class="affiche" data-ouvrir="${esc(x.id)}">${photo(x, x.titre)}
-    <span class="source">${esc(x.source)}</span>
     <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3></div></a>`;
 }
 function nbAutres(x) {
@@ -185,7 +179,7 @@ function nbAutres(x) {
 function carte(x, taille, etiquette) {
   inscrire(x);
   return `<a href="${esc(x.lien)}" class="carte ${taille}" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, LARGEURS[taille])}
-    <span class="source">${esc(x.source)}</span>${etiquette ? `<span class="pays-tag">${esc(etiquette)}</span>` : nbAutres(x)}
+    ${etiquette ? `<span class="pays-tag">${esc(etiquette)}</span>` : ''}
     <div class="voile">${lieu(x)}<h3>${titre(x)}</h3></div></a>`;
 }
 
@@ -851,15 +845,51 @@ function ouvrirFiche(id) {
     <span class="meta">${esc(principal.nom)} · ${esc(x.rubrique || '')}${x.lieu ? ' · ' + esc(x.lieu) : ''} · ${ilYa(x.date)}</span>
     <h2>${titre(x)}</h2>
     ${x.resume ? `<p>${esc(x.resume)}</p>` : ''}
-    <a class="principal" href="${esc(principal.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.id)}">Lire chez ${esc(principal.nom)} ${FLECHE}</a>
-    ${autres.length ? `<h3>Ils en parlent aussi</h3>${autres.map(s => `<a class="autre" href="${esc(s.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.id)}"><span>${esc(s.nom)}</span><b>${esc(s.titre || x.titre)}</b></a>`).join('')}` : ''}
+    <h3>${autres.length ? `Lire l'article chez ces ${autres.length + 1} médias` : 'Lire l\'article'}</h3>
+    <div class="medias-fiche">${[principal, ...autres].map((m, k) => `<a class="${k ? '' : 'premier'}" href="${esc(m.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.id)}">${esc(m.nom)}${FLECHE}</a>`).join('')}</div>
     <button type="button" class="fermer">Fermer</button></div>`;
   document.body.appendChild(fond);
   document.body.style.overflow = 'hidden';
   const fermer = () => { fond.remove(); document.body.style.overflow = ''; };
   fond.addEventListener('click', e => { if (e.target === fond || e.target.closest('.fermer')) fermer(); });
   document.addEventListener('keydown', function esc_(e) { if (e.key === 'Escape') { fermer(); document.removeEventListener('keydown', esc_); } });
-  fond.querySelector('.principal').focus();
+  glisserPourFermer(fond.querySelector('.fiche'), fermer);
+  fond.querySelector('.medias-fiche a').focus({ preventScroll: true });
+}
+
+/* la fiche suit le doigt vers le bas ; assez loin (ou d'un geste rapide), elle se ferme ; sinon elle remonte */
+function glisserPourFermer(fiche, fermer) {
+  let g = null;
+  fiche.addEventListener('touchstart', e => {
+    if (fiche.scrollTop > 0) return;                       // on lit la fiche : le geste fait défiler, il ne ferme pas
+    g = { y: e.touches[0].clientY, dy: 0, t: performance.now(), v: 0 };
+  }, { passive: true });
+  fiche.addEventListener('touchmove', e => {
+    if (!g) return;
+    const dy = e.touches[0].clientY - g.y, t = performance.now();
+    if (dy < 0 && !g.dy) { g = null; return; }              // vers le haut : on laisse défiler
+    g.v = (dy - g.dy) / Math.max(1, t - g.t); g.t = t; g.dy = Math.max(0, dy);
+    fiche.style.transition = 'none';
+    fiche.style.transform = `translateY(${g.dy}px)`;
+    fiche.parentElement.style.background = `rgba(0,0,0,${0.45 * Math.max(0, 1 - g.dy / 400)})`;
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  const lacher = () => {
+    if (!g) return;
+    const { dy, v } = g; g = null;
+    fiche.style.transition = 'transform .32s cubic-bezier(.2,.8,.2,1)';
+    if (dy > 110 || (v > 0.6 && dy > 30)) {
+      fiche.style.transform = 'translateY(105%)';
+      fiche.parentElement.style.transition = 'background .32s ease';
+      fiche.parentElement.style.background = 'rgba(0,0,0,0)';
+      setTimeout(fermer, 300);
+    } else {
+      fiche.style.transform = '';
+      fiche.parentElement.style.background = '';
+    }
+  };
+  fiche.addEventListener('touchend', lacher);
+  fiche.addEventListener('touchcancel', lacher);
 }
 
 /* ------------------------------------------------------------------ clics */

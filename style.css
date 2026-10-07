@@ -466,3 +466,20 @@ a.icone{color:var(--texte)}
 .nom-app{letter-spacing:0}
 .guide-nom{letter-spacing:0}
 .devise{margin-top:-4px;font-family:var(--ui);font-style:normal;font-size:10.5px;font-weight:500;letter-spacing:.32em;text-transform:uppercase;color:var(--doux)}
+
+/* moins d'articles d'un coup sur téléphone : des cartes plus grandes, plus d'air, rien sur la photo à part le titre */
+@media (max-width: 899px) {
+  .fil{gap:16px}.rang{gap:14px}.colonne{gap:14px}
+  .g{height:330px}.g h3{font-size:22px}
+  .v{flex:0 0 56%;height:440px}.v h3{font-size:19px}
+  .p{height:213px}.p h3{font-size:16px}.p .voile{padding:10px 12px 11px}
+  .carte{border-radius:24px}
+  .carte .voile{left:9px;right:9px;bottom:9px;padding:13px 15px 14px;border-radius:17px}
+}
+.carte.p h3{-webkit-line-clamp:4}
+/* la fiche : les médias qui en parlent, juste leurs noms */
+.medias-fiche{display:flex;flex-wrap:wrap;gap:8px}
+.medias-fiche a{display:inline-flex;align-items:center;gap:6px;min-height:42px;padding:0 15px;border-radius:999px;border:1px solid rgba(0,0,0,.16);color:#141414;font-size:14px;font-weight:500;text-decoration:none}
+.medias-fiche a.premier{background:#141414;border-color:#141414;color:#fff}
+.medias-fiche a svg{width:14px;height:14px}
+.fiche{will-change:transform}
