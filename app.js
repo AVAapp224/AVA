@@ -308,9 +308,9 @@ function blocEssentiel(titre, items, mode) {
 function rubriques() {
   const liste = prefs.themes.map(t => `<a href="#${t}">${THEMES[t].nom}</a>`).join('');
   if (!prefs.themes.length) return `<nav class="rubriques"><a href="#reglages-themes" class="plus">+ Choisir mes thèmes</a></nav>`;
-  const fois = Math.max(1, Math.ceil(5 / prefs.themes.length));   // assez de thèmes pour remplir la largeur
+  const fois = Math.max(1, Math.ceil(10 / prefs.themes.length));   // assez de thèmes pour remplir la largeur
   const moitie = liste.repeat(fois);
-  return `<nav class="rubriques" aria-label="Mes thèmes"><div class="ruban"><div class="ruban-piste" style="--duree:${prefs.themes.length * fois * 3.2}s">${moitie}<span aria-hidden="true" class="copie">${moitie}</span></div></div>
+  return `<nav class="rubriques" aria-label="Mes thèmes"><div class="ruban"><div class="ruban-piste">${moitie}<span aria-hidden="true" class="copie">${moitie}</span></div></div>
     <a href="#reglages-themes" class="plus" aria-label="Ajouter un thème">+</a></nav>`;
 }
 function blocPile(titre, items, fin = "Tu as vu l'essentiel de la culture aujourd'hui.") {
@@ -781,6 +781,42 @@ function activer() {
     champ.closest('.recherche').querySelectorAll('.suggestions button').forEach(b => { b.hidden = q && !norm(b.textContent).includes(q); });
   }));
   if ($('#pile')) activerPile();
+  document.querySelectorAll('.ruban').forEach(activerRuban);
+}
+
+/* le ruban des thèmes avance tout seul ; dès qu'on le touche, on le fait défiler au doigt ; il repart 2 s après */
+function activerRuban(r) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const VITESSE = 0.028;                       // px par ms : doux
+  let pos = 0, avant = 0, pause = false, reprise = 0;
+  const moitie = () => r.querySelector('.ruban-piste').scrollWidth / 2;
+  const boucler = () => {                      // la 2e moitié est la copie de la 1re : on saute sans que ça se voie
+    const m = moitie();
+    if (m <= 0) return;
+    if (r.scrollLeft >= m) r.scrollLeft -= m;
+    else if (r.scrollLeft <= 0) r.scrollLeft += m;
+  };
+  const arreter = () => { pause = true; clearTimeout(reprise); };
+  const relancer = () => { clearTimeout(reprise); reprise = setTimeout(() => { pause = false; pos = r.scrollLeft; avant = 0; }, 2000); };
+  r.addEventListener('pointerdown', arreter, { passive: true });
+  r.addEventListener('touchstart', arreter, { passive: true });
+  r.addEventListener('wheel', () => { arreter(); relancer(); }, { passive: true });
+  r.addEventListener('pointerup', relancer, { passive: true });
+  r.addEventListener('touchend', relancer, { passive: true });
+  r.addEventListener('pointercancel', relancer, { passive: true });
+  r.addEventListener('scroll', () => { if (pause) boucler(); }, { passive: true });
+  const pas = t => {
+    if (!r.isConnected) return;                // page changée : on s'arrête
+    if (!pause) {
+      if (avant) pos += (t - avant) * VITESSE;
+      const m = moitie();
+      if (m > 0 && pos >= m) pos -= m;
+      r.scrollLeft = pos;
+    } else boucler();
+    avant = pause ? 0 : t;
+    requestAnimationFrame(pas);
+  };
+  requestAnimationFrame(pas);
 }
 
 /* ------------------------------------------------------------------ fiche d'un article */
@@ -905,7 +941,7 @@ function activerPile() {
     const l = restantes();
     l.forEach((c, k) => {
       c.style.zIndex = 10 - k;
-      c.style.transform = `translateY(${Math.min(k, 2) * 12}px) scale(${1 - Math.min(k, 2) * 0.045})`;
+      c.style.transform = `translate3d(0,${Math.min(k, 2) * 12}px,0) scale(${1 - Math.min(k, 2) * 0.045})`;
       c.style.opacity = k < 3 ? 1 : 0;
       c.style.pointerEvents = k === 0 ? 'auto' : 'none';
       c.querySelectorAll('.tampon-choix').forEach(t => { t.style.opacity = 0; });
@@ -916,32 +952,62 @@ function activerPile() {
   };
   const envoyer = (c, sens) => {
     c.classList.remove('prise'); c.classList.add('partie');
-    c.style.transform = `translateX(${sens * 520}px) rotate(${sens * 18}deg)`;
+    c.style.transform = `translate3d(${sens * (innerWidth + 120)}px,40px,0) rotate(${sens * 22}deg)`;
     c.style.opacity = 0; c.style.pointerEvents = 'none';
     if (sens > 0) montrer('Info gardée pour plus tard.');
     ranger();
   };
-  let g = null;
+  // le glissé suit le doigt image par image ; la carte suivante monte à mesure ; un petit geste rapide suffit
+  let g = null, image = 0;
+  const peindre = () => {
+    image = 0;
+    if (!g) return;
+    const { c, dx, dy, haut } = g;
+    c.style.transform = `translate3d(${dx}px,${dy * 0.15}px,0) rotate(${(dx / 20) * (haut ? 1 : -1)}deg)`;
+    g.tg.style.opacity = Math.max(0, Math.min(1, dx / 80));
+    g.tp.style.opacity = Math.max(0, Math.min(1, -dx / 80));
+    const p = Math.min(1, Math.abs(dx) / 140);
+    g.suivantes.forEach((d, k) => {
+      const rang = k + 1 - p;
+      d.style.transform = `translate3d(0,${Math.min(rang, 2) * 12}px,0) scale(${1 - Math.min(rang, 2) * 0.045})`;
+    });
+  };
   pile.addEventListener('pointerdown', e => {
-    const c = e.target.closest('.une.glisse');
-    if (!c || c !== restantes()[0] || e.target.closest('a, button')) return;
-    g = { c, x: e.clientX, y: e.clientY, dx: 0 };
-    c.classList.add('prise'); c.setPointerCapture(e.pointerId);
+    const l = restantes(), c = e.target.closest('.une.glisse');
+    if (!c || c !== l[0] || e.target.closest('a, button')) return;
+    const r = c.getBoundingClientRect();
+    g = { c, x: e.clientX, y: e.clientY, dx: 0, dy: 0, haut: e.clientY < r.top + r.height / 2, t: performance.now(), vx: 0,
+      tg: c.querySelector('.garder'), tp: c.querySelector('.passer'), suivantes: l.slice(1, 3) };
+    c.classList.add('prise');
+    g.suivantes.forEach(d => { d.style.transition = 'none'; });
+    c.setPointerCapture(e.pointerId);
   });
   pile.addEventListener('pointermove', e => {
     if (!g) return;
-    g.dx = e.clientX - g.x;
-    g.c.style.transform = `translate(${g.dx}px,${(e.clientY - g.y) * 0.2}px) rotate(${g.dx / 18}deg)`;
-    g.c.querySelector('.garder').style.opacity = Math.max(0, Math.min(1, g.dx / 90));
-    g.c.querySelector('.passer').style.opacity = Math.max(0, Math.min(1, -g.dx / 90));
+    const t = performance.now(), dx = e.clientX - g.x;
+    if (t > g.t) g.vx = 0.7 * ((dx - g.dx) / (t - g.t)) + 0.3 * g.vx;   // vitesse lissée, en px par ms
+    g.t = t; g.dx = dx; g.dy = e.clientY - g.y;
+    if (!image) image = requestAnimationFrame(peindre);
   });
   const lacher = () => {
     if (!g) return;
-    const { c, dx } = g; g = null;
+    const { c, dx, vx, suivantes } = g; g = null;
     c.classList.remove('prise');
+    suivantes.forEach(d => { d.style.transition = ''; });
     glisseRecente = Math.abs(dx) > 8;
     setTimeout(() => { glisseRecente = false; }, 50);
-    if (Math.abs(dx) > 100) envoyer(c, dx > 0 ? 1 : -1); else ranger();
+    const lance = Math.abs(vx) > 0.45 && Math.sign(vx) === Math.sign(dx);
+    if (Math.abs(dx) > 90 || lance) {
+      const sens = dx > 0 ? 1 : -1;
+      const duree = Math.max(180, Math.min(380, innerWidth / Math.max(Math.abs(vx), 0.8)));
+      c.style.transition = `transform ${duree}ms cubic-bezier(.2,.7,.3,1), opacity ${duree}ms ease`;
+      envoyer(c, sens);
+      setTimeout(() => { c.style.transition = ''; }, duree + 50);
+    } else {
+      c.style.transition = 'transform .5s cubic-bezier(.34,1.45,.64,1)';   // retour en douceur, avec un léger rebond
+      ranger();
+      setTimeout(() => { c.style.transition = ''; }, 520);
+    }
   };
   pile.addEventListener('pointerup', lacher);
   pile.addEventListener('pointercancel', lacher);
