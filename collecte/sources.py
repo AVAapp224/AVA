@@ -69,7 +69,7 @@ SOURCES = [
         (GU.format('technology'), 'tech'), (GU.format('travel'), 'voyage'), (GU.format('fashion'), 'mode'),
         (GU.format('food'), 'gastronomie'), (GU.format('society'), 'societe'),
     ]),
-    ('ft', 'Financial Times', 'uk', 'en', [('https://www.ft.com/rss/home', 'bourse'), ('https://www.ft.com/world?format=rss', '@monde'), ('https://www.ft.com/companies?format=rss', 'bourse')]),
+    ('ft', 'Financial Times', 'uk', 'en', [('https://www.ft.com/rss/home', None), ('https://www.ft.com/world?format=rss', '@monde'), ('https://www.ft.com/companies?format=rss', 'bourse')]),
     ('independent', 'The Independent', 'uk', 'en', [('https://www.independent.co.uk/news/world/rss', None)]),
     ('economist', 'The Economist', 'uk', 'en', [('https://www.economist.com/latest/rss.xml', None)]),
     ('skynews', 'Sky News', 'uk', 'en', [('https://feeds.skynews.com/feeds/rss/home.xml', None)]),

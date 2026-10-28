@@ -6,3 +6,5 @@ collecte/*.avant.py
 collecte/test_flux.py
 collecte/candidats.txt
 collecte/alt.txt
+.DS_Store
+collecte/sens/sens

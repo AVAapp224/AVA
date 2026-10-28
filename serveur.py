@@ -1,4 +1,4 @@
-"""Serveur de test : affiche le site et relance la collecte toutes les 5 minutes.
+"""Serveur de test : affiche le site et relance la collecte toutes les 30 minutes.
 
 Lancement : python3 serveur.py   puis ouvrir http://localhost:8080
 Sur un iPhone connecté au même Wi-Fi : utiliser l'adresse « réseau » affichée au démarrage.
@@ -14,10 +14,10 @@ import time
 
 ICI = os.path.dirname(os.path.abspath(__file__))
 COLLECTE = os.path.join(ICI, 'collecte', 'collecte.py')
-DUREE_MAX_S = 240   # une collecte plus longue est arrêtée : un site trop lent ne bloque jamais l'app
+DUREE_MAX_S = 900   # une collecte plus longue est arrêtée : un site trop lent ne bloque jamais l'app
 
 PORT = int(os.environ.get('PORT', 8080))
-INTERVALLE_MIN = 5
+INTERVALLE_MIN = 30
 
 
 def collecter():

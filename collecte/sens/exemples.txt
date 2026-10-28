@@ -1,0 +1,144 @@
+# Exemples de titres typiques pour chaque thème (français et anglais).
+# AVA apprend chaque thème à partir de ces exemples ET des articles des rubriques spécialisées des journaux.
+# Pour corriger un thème qui se trompe : ajouter ici quelques titres typiques. Format : thème<TAB>langue<TAB>titre
+bourse	fr	La Bourse de Paris termine en baisse, le CAC 40 recule de 1 %
+bourse	fr	La Banque centrale européenne relève ses taux pour freiner l'inflation
+bourse	fr	Le groupe annonce des résultats trimestriels supérieurs aux attentes des analystes
+bourse	fr	Le chômage repart à la hausse et la croissance ralentit au troisième trimestre
+bourse	fr	Fusion géante : le rachat valorise l'entreprise à 20 milliards d'euros
+bourse	fr	Le prix du pétrole bondit après la décision de l'OPEP
+bourse	en	Wall Street closes lower as tech stocks slide
+bourse	en	The Federal Reserve holds interest rates steady amid inflation worries
+bourse	en	Company shares soar after quarterly earnings beat forecasts
+bourse	en	Oil prices jump as OPEC agrees to cut output
+bourse	en	The economy grew faster than expected in the third quarter
+bourse	en	Bank announces thousands of job cuts to reduce costs
+sport	fr	Le PSG s'impose face à Marseille et prend la tête de la Ligue 1
+sport	fr	Roland-Garros : la joueuse française se qualifie pour les quarts de finale
+sport	fr	Le Canadien de Montréal remporte son troisième match de suite
+sport	fr	Jeux olympiques : la nageuse décroche la médaille d'or
+sport	fr	Le sélectionneur dévoile la liste des joueurs pour la Coupe du monde
+sport	en	Real Madrid beat Barcelona in a thrilling Clasico
+sport	en	The Lakers win in overtime to keep their playoff hopes alive
+sport	en	Verstappen takes pole position for the Grand Prix
+sport	en	England name their squad for the Rugby World Cup
+sport	en	The tennis champion withdraws from the tournament with an injury
+politique	fr	Le gouvernement survit à une motion de censure à l'Assemblée nationale
+politique	fr	Le président annonce un remaniement ministériel
+politique	fr	Élections législatives : le parti arrive en tête du premier tour
+politique	fr	Le Sénat adopte le projet de loi sur l'immigration
+politique	fr	Les chefs d'État réunis au sommet de l'OTAN sur la guerre en Ukraine
+politique	fr	Le premier ministre du Québec présente son nouveau conseil des ministres
+politique	en	The prime minister faces a confidence vote in parliament
+politique	en	The president signs an executive order on immigration
+politique	en	Voters head to the polls in a tight general election
+politique	en	Peace talks resume between the warring parties
+politique	en	The opposition leader calls for early elections
+politique	en	Sanctions announced against the regime after the military crackdown
+culture	fr	Le prix Goncourt est attribué à une romancière pour son premier roman
+culture	fr	Le musée consacre une grande exposition à l'œuvre du peintre
+culture	fr	Au théâtre, une nouvelle mise en scène de Molière
+culture	fr	L'opéra rouvre ses portes après deux ans de travaux
+culture	en	The museum unveils a major exhibition of the painter's work
+culture	en	A new novel explores memory and loss
+culture	en	The author wins the Booker Prize
+culture	en	The orchestra performs a rarely heard symphony
+pop	fr	Le nouveau film de Christopher Nolan domine le box-office
+pop	fr	La chanteuse annonce une tournée mondiale et un nouvel album
+pop	fr	Netflix dévoile la bande-annonce de la saison 2 de la série
+pop	fr	Le rappeur bat un record d'écoutes sur les plateformes de streaming
+pop	en	Taylor Swift announces new album and world tour
+pop	en	The film tops the box office in its opening weekend
+pop	en	The actress wins an Oscar for best performance
+pop	en	The streaming series is renewed for another season
+environnement	fr	Le réchauffement climatique accélère la fonte des glaciers alpins
+environnement	fr	La COP s'achève sur un accord pour réduire les émissions de CO2
+environnement	fr	Une sécheresse historique menace les récoltes
+environnement	fr	La biodiversité s'effondre dans les océans, alertent les scientifiques
+environnement	fr	Inondations meurtrières après des pluies diluviennes
+environnement	en	Climate change is making heatwaves more frequent, scientists warn
+environnement	en	Countries agree to cut carbon emissions at the climate summit
+environnement	en	Wildfires force thousands to evacuate as drought grips the region
+environnement	en	Plastic pollution threatens marine wildlife
+environnement	en	The hurricane makes landfall bringing floods and destruction
+tech	fr	OpenAI dévoile un nouveau modèle d'intelligence artificielle
+tech	fr	Apple présente son nouvel iPhone et ses fonctions d'IA
+tech	fr	Une cyberattaque paralyse les services de l'hôpital
+tech	fr	La NASA lance une mission vers la Lune
+tech	fr	Des chercheurs découvrent une nouvelle espèce grâce à l'ADN
+tech	en	The startup raises funding to build artificial intelligence chips
+tech	en	Scientists discover a new exoplanet using the James Webb telescope
+tech	en	A data breach exposes millions of user accounts
+tech	en	The rocket launch marks a milestone for space exploration
+tech	en	Researchers develop a new battery that charges in minutes
+sante	fr	Un nouveau vaccin contre la grippe autorisé par les autorités de santé
+sante	fr	Les urgences de l'hôpital débordées faute de médecins
+sante	fr	Une étude montre les bienfaits du sommeil sur la santé mentale
+sante	fr	Cancer : un traitement prometteur testé sur des patients
+sante	en	A new study links poor sleep to heart disease
+sante	en	Hospitals struggle with a surge in flu cases
+sante	en	The drug shows promising results in a cancer trial
+sante	en	Mental health services face record demand among young people
+mode	fr	Fashion week de Paris : le défilé Chanel fait sensation
+mode	fr	Le créateur présente sa nouvelle collection de haute couture
+mode	fr	Le design scandinave s'invite dans nos intérieurs
+mode	en	The designer unveils a new collection at Paris Fashion Week
+mode	en	The luxury fashion house names a new creative director
+mode	en	Trends from the runway this season
+gastronomie	fr	Le guide Michelin attribue trois étoiles à un nouveau restaurant
+gastronomie	fr	Une recette facile de gratin pour l'automne
+gastronomie	fr	Les vendanges s'annoncent exceptionnelles pour les vins de Bordeaux
+gastronomie	en	The chef opens a new restaurant with a seasonal menu
+gastronomie	en	An easy recipe for a weeknight pasta dinner
+gastronomie	en	The best wines to drink this autumn
+voyage	fr	Les plus belles destinations pour partir en vacances cet hiver
+voyage	fr	Un week-end à Lisbonne : nos adresses et bons plans
+voyage	fr	Le tourisme bat des records dans les îles grecques
+voyage	en	The best places to travel this winter
+voyage	en	A weekend guide to Lisbon: where to eat and stay
+voyage	en	Tourism hits record levels as travellers return
+societe	fr	Grève des enseignants : les écoles fermées dans plusieurs villes
+societe	fr	La crise du logement pousse les loyers à des niveaux records
+societe	fr	Le procès de l'accusé s'ouvre devant la cour d'assises
+societe	fr	Les étudiants manifestent contre la hausse des frais de scolarité
+societe	fr	Violences faites aux femmes : une nouvelle loi pour mieux protéger les victimes
+societe	en	Teachers go on strike over pay and working conditions
+societe	en	The housing crisis pushes rents to record highs
+societe	en	The trial of the suspect opens in court
+societe	en	Police arrest dozens after protests turn violent
+societe	en	A new report highlights rising inequality among young people
+# « actu » = actualité générale (catastrophes, accidents, conflits, faits divers, diplomatie de crise) :
+# ces articles ne vont dans aucun thème, ils vivent dans le fil général.
+actu	fr	Au moins 40 morts dans une collision entre deux trains
+actu	fr	Un séisme de magnitude 7 frappe le pays, des centaines de victimes
+actu	fr	Un incendie dans un immeuble fait plusieurs morts
+actu	fr	Accident d'avion : aucun survivant parmi les passagers
+actu	fr	Frappes aériennes sur la ville, des dizaines de civils tués
+actu	fr	Affrontements meurtriers à la frontière entre les deux pays
+actu	fr	Un homme interpellé après une attaque au couteau
+actu	fr	Le bilan de la tempête s'alourdit, des milliers de sinistrés
+actu	fr	L'armée annonce avoir repris le contrôle de la ville
+actu	fr	Prise d'otages : les négociations se poursuivent
+actu	en	At least 60 killed as two high-speed trains collide
+actu	en	Earthquake kills hundreds and leaves thousands homeless
+actu	en	Plane crash leaves no survivors
+actu	en	Air strikes kill dozens of civilians in the city
+actu	en	Border clash kills soldiers as tensions rise
+actu	en	Man arrested after deadly stabbing attack
+actu	en	Death toll from the storm rises as rescuers search for survivors
+actu	en	Troops seize control of the capital
+actu	en	Hostages released after days of negotiations
+actu	en	Explosion at a factory kills workers
+# Ajouts du 28 octobre : diplomatie, sommets, justice, personnalités
+politique	fr	Le président russe reçoit les dirigeants africains lors d'un sommet à Moscou
+politique	fr	Le ministre des Affaires étrangères en visite officielle pour renforcer les liens diplomatiques
+politique	fr	Le dirigeant brésilien conteste sa défaite électorale et se réfugie à l'étranger
+politique	en	Russia hosts African leaders at a summit to expand its influence
+politique	en	The foreign minister meets his counterpart to ease diplomatic tensions
+politique	en	The defeated candidate refuses to concede and claims the election was rigged
+societe	fr	Le militant d'extrême droite reconnu coupable de harcèlement par le tribunal
+societe	fr	Décès d'une figure historique de la lutte pour les droits des travailleurs
+societe	fr	Le juge condamne l'ancien dirigeant à cinq ans de prison
+societe	en	The activist is found guilty of harassing a journalist
+societe	en	Civil rights icon and labour leader dies at 96
+societe	en	The court sentences the former official to five years in prison

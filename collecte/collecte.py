@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo
 
 from sources import SOURCES, MARCHES, SOCIETES
 from lieux import LIEUX
+import comprendre
 
 ICI = os.path.dirname(os.path.abspath(__file__))
 DONNEES = os.path.join(ICI, '..', 'donnees')
@@ -363,6 +364,19 @@ def recuperer_tout():
     return list(articles.values()), etats
 
 # ---------------------------------------------------------------- classement
+def mots_cles(a):
+    """Ce que disent les mots du titre et du résumé, sans tenir compte de la rubrique du journal."""
+    t, r = norm(a['titre']), norm(a['resume'])
+    scores = {}
+    for th, rx in RE_THEMES.items():
+        s = 2 * len(rx.findall(t)) + len(rx.findall(r))
+        rx_fort = RE_FORTS.get(th)
+        if rx_fort:
+            s += 3 * len(rx_fort.findall(t)) + 2 * len(rx_fort.findall(r))
+        if s:
+            scores[th] = s
+    return scores
+
 def classer(a):
     t, r = norm(a['titre']), norm(a['resume'])
     scores = {}
@@ -572,19 +586,16 @@ def regrouper(articles):
         age = (maintenant - recent).total_seconds() / 3600
         g['nb_sources'] = len(sources)
         g['score'] = (len(sources) + 0.5 * (len(pays) - 1)) * math.exp(-age / 20)
-        # thème du sujet : d'abord les rubriques des journaux, puis les mots-clés s'ils sont nets
-        rubriques, mots_cles = {}, {}
+        # thème du sujet : celui que le sens donne à ses articles (voir comprendre.py), à la majorité
+        votes = {}
         for x in arts:
-            for h in x['indices']:
-                rubriques[h] = rubriques.get(h, 0) + 1
             if x['theme']:
-                mots_cles[x['theme']] = mots_cles.get(x['theme'], 0) + 1
-        avec_rubrique = sum(1 for x in arts if x['indices']) or 1
-        # une rubrique ne compte pour le sujet que si au moins 40 % des journaux qui l'ont classé l'y ont mis
-        g['rubriques'] = {t for t, n in rubriques.items() if n / avec_rubrique >= 0.4}
-        poids = {t: 2 * rubriques.get(t, 0) + mots_cles.get(t, 0) for t in set(rubriques) | set(mots_cles)}
-        gagnant = max(poids, key=poids.get) if poids else None
-        g['theme'] = gagnant if gagnant and (poids[gagnant] >= 0.5 * len(arts) or len(arts) <= 2) else None
+                votes[x['theme']] = votes.get(x['theme'], 0) + 1
+        classes = sum(votes.values()) or 1
+        # un thème ne compte pour le sujet que si au moins 40 % des articles classés y sont
+        g['rubriques'] = {t for t, n in votes.items() if n / classes >= 0.4}
+        gagnant = max(votes, key=votes.get) if votes else None
+        g['theme'] = gagnant if gagnant and (votes[gagnant] >= 0.5 * len(arts) or len(arts) <= 2 or votes[gagnant] / classes >= 0.6) else None
         g['pays'] = sorted({p for x in arts for p in x['pays']})
         if len({x['pays_source'] for x in arts}) > 1:
             surs = [x['lieu'] for x in arts if x.get('lieu') and not x.get('lieu_devine')]
@@ -783,6 +794,61 @@ def fil_monde(groupes, n, deja=()):
         c['lieu'] = c.get('lieu') or lieu_du_groupe(g)
         out.append(c)
     return out
+
+# ---------------------------------------------------------------- « À ne pas manquer »
+# Les sujets très repris qui ne sont pas dans les infos du jour restent épinglés sur l'accueil
+# 24 h (48 h pour les plus gros), pour que personne ne les rate parce qu'il n'a pas ouvert AVA depuis 5 h.
+EPINGLES = os.path.join(ETAT, 'epingles.json')
+SEUIL_MEDIAS, SEUIL_MEDIAS_PAYS, SEUIL_PAYS = 6, 4, 3
+MAX_EPINGLES = 8
+
+def tres_repris(g):
+    pays = {x['pays_source'] for x in g['articles']}
+    return g['nb_sources'] >= SEUIL_MEDIAS or (g['nb_sources'] >= SEUIL_MEDIAS_PAYS and len(pays) >= SEUIL_PAYS)
+
+def epingler(groupes, une):
+    maintenant = dt.datetime.now(dt.timezone.utc)
+    anciens = [e for e in lire_json(EPINGLES, []) if dt.datetime.strptime(e['jusqua'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=dt.timezone.utc) > maintenant]
+    liens_une = {l for x in une for l in [x['lien']] + [s['lien'] for s in x.get('sources', [])]}
+    # empreinte d'un sujet pour reconnaître le même événement, même raconté dans une autre langue
+    def signature(titres, lieu_):
+        return dict(lieu=lieu_, e=[empreinte(t) for t in titres],
+                    ms=set().union(*(mots_sujet(t) for t in titres)),
+                    ns=set().union(*(set(re.findall(r"[a-z\-]{4,}", norm(t))) for t in titres)) & RARES_LARGES)
+    def meme(a, b):
+        if any(meme_sujet(x, y) for x in a['e'] for y in b['e']) or (a['ns'] & b['ns']):
+            return True
+        commun = a['ms'] & b['ms']
+        return (a['lieu'] and a['lieu'] == b['lieu'] and bool(commun & MOTS_SUJET_LARGES)) or len(commun & MOTS_SUJET) >= 2
+    sig_une = [signature([x['titre']] + [s['titre'] for s in x.get('sources', [])][:4], x.get('lieu')) for x in une]
+    for e in anciens:
+        e['_sig'] = signature([e['sujet']['titre']] + [s['titre'] for s in e['sujet'].get('sources', [])][:4], e['sujet'].get('lieu'))
+    for g in sorted(groupes, key=importance_monde, reverse=True)[:150]:
+        if not tres_repris(g) or any(x['lien'] in liens_une for x in g['articles']):
+            continue
+        sig = signature([x['titre'] for x in g['articles'][:5]], lieu_du_groupe(g))
+        if any(meme(sig, u) for u in sig_une):
+            continue
+        s = sujet(g)
+        liens = {x['lien'] for x in g['articles']}
+        existant = next((e for e in anciens if liens & set(e['liens']) or meme(sig, e['_sig'])), None)
+        if existant:                      # sujet déjà épinglé : on met à jour ses sources, pas sa date de fin
+            existant['sujet'] = dict(s, cle=existant['cle'], jusqua=existant['jusqua'])
+            existant['liens'] = sorted(set(existant['liens']) | liens)[:60]
+            existant['nb'] = max(existant['nb'], g['nb_sources'])
+            continue
+        gros = g['nb_sources'] >= 10 or bool(AMPLEUR.search(norm(s['titre'])))
+        fin = iso(maintenant + dt.timedelta(hours=48 if gros else 24))
+        cle = s['id']
+        anciens.append(dict(cle=cle, jusqua=fin, depuis=iso(maintenant), nb=g['nb_sources'], liens=sorted(liens)[:60],
+                            sujet=dict(s, cle=cle, jusqua=fin), _sig=sig))
+    # un sujet entré entre-temps dans les infos du jour n'a plus besoin d'être épinglé
+    anciens = [e for e in anciens if not (set(e['liens']) & liens_une) and not any(meme(e['_sig'], u) for u in sig_une)]
+    anciens.sort(key=lambda e: (e['nb'], e['depuis']), reverse=True)
+    for e in anciens:
+        e.pop('_sig', None)
+    ecrire_json(EPINGLES, anciens[:30])
+    return [e['sujet'] for e in anciens[:MAX_EPINGLES]]
 
 def sans_doublon(groupes):
     out, empreintes, noms = [], [], []
@@ -1102,6 +1168,13 @@ def lancer():
         return None
     for a in articles:
         classer(a)
+    # thèmes compris par le sens du texte (et plus seulement par la rubrique du journal)
+    try:
+        t0 = time.time()
+        if comprendre.affiner(articles, mots_cles):
+            print(f"Thèmes analysés par le sens en {time.time() - t0:.0f} s")
+    except Exception as e:
+        print('Analyse par le sens indisponible, classement par mots-clés conservé :', e)
     apprendre_noms(articles)
     groupes = regrouper(articles)
     calculer_rares(groupes)
@@ -1134,8 +1207,11 @@ def lancer():
             x['lieu'] = lieu(dict(titre=x['titre'], resume=x.get('resume', ''), pays_source=None, langue='fr'))
 
     # --- les fils : mis à jour à chaque passage
-    fils = dict(accueil=fil_monde(groupes, 130, essentiel['une']),
-                themes={t: fil(articles, lambda a, t=t: a['theme'] == t and (t in a['indices'] or not a['indices']), 80, essentiel['themes'].get(t, [])) for t in THEMES},
+    # --- « À ne pas manquer » : les sujets très repris hors infos du jour, épinglés 24 à 48 h
+    a_ne_pas_manquer = photos.garder(epingler(groupes, essentiel['une']), MAX_EPINGLES, True)
+
+    fils = dict(accueil=fil_monde(groupes, 130, essentiel['une'] + a_ne_pas_manquer),
+                themes={t: fil(articles, lambda a, t=t: a['theme'] == t, 80, essentiel['themes'].get(t, [])) for t in THEMES},
                 pays={p: fil(articles, lambda a, p=p: article_du_pays(a, p), 60, essentiel['pays'].get(p, [])) for p in PAYS_SUIVIS})
     fils = dict(accueil=photos.garder(fils['accueil'], 90, analyser=110),
                 themes={t: photos.garder(l, 60, analyser=70) for t, l in fils['themes'].items()},
@@ -1147,7 +1223,7 @@ def lancer():
     photos.sauver()
     sortie = dict(
         maj=iso(dt.datetime.now(dt.timezone.utc)), nb_articles=len(articles), nb_sources=sum(1 for v in etats.values() if v['ok']),
-        essentiel=essentiel, fils=fils, marches=marches, societes=societes,
+        essentiel=essentiel, a_ne_pas_manquer=a_ne_pas_manquer, fils=fils, marches=marches, societes=societes,
         cours_source='Yahoo Finance', cours_releve=iso(dt.datetime.fromtimestamp(getattr(bourse, 'releve', None) or time.time(), dt.timezone.utc)),
         compte={'themes': {t: len(fils['themes'][t]) for t in THEMES}, 'pays': {p: len(fils['pays'][p]) for p in PAYS_SUIVIS}},
         pays_suivis=PAYS_SUIVIS,

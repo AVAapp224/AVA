@@ -227,6 +227,7 @@ function habitudes() {
 }
 function noter(x, quoi) {
   if (!x) return;
+  marquerVu(x);
   const h = habitudes()[quoi];
   [['lieu', x.lieu], ['source', x.source], ['theme', x.theme]].forEach(([type, cle]) => {
     if (cle) h[type][cle] = (h[type][cle] || 0) + 1;
@@ -378,6 +379,28 @@ function entete(nom, chapo, cle) {
     <h1 class="titre-app">${esc(nom)}</h1>${chapo ? `<p class="chapo-theme">${esc(chapo)}</p>` : ''}<div class="filet"></div></header>`;
 }
 
+/* « À ne pas manquer » : les sujets très repris hors infos du jour, épinglés 24 à 48 h par AVA.
+   Chacun reste affiché tant que tu ne l'as pas vu (1 seconde à l'écran ou ouvert), puis laisse sa place. */
+const CLE_VUS = 'ava-sujets-vus';
+const vusSujets = (() => {
+  try {
+    const v = JSON.parse(localStorage.getItem(CLE_VUS) || '{}'), limite = Date.now() - 4 * 86400e3;
+    Object.keys(v).forEach(k => { if (v[k] < limite) delete v[k]; });
+    return v;
+  } catch (e) { return {}; }
+})();
+function marquerVu(x) {
+  if (!x || !x.cle || vusSujets[x.cle]) return;
+  vusSujets[x.cle] = Date.now();
+  try { localStorage.setItem(CLE_VUS, JSON.stringify(vusSujets)); } catch (e) {}
+}
+function blocANePasManquer() {
+  const items = avecPhoto(D.a_ne_pas_manquer || []).filter(x => !vusSujets[x.cle] && (!x.jusqua || new Date(x.jusqua) > Date.now()));
+  if (!items.length) return '';
+  const html = blocEssentiel('À ne pas manquer', items, 'defile');
+  return html.includes('class="vide"') ? '' : html;
+}
+
 /* ------------------------------------------------------------------ pages */
 let D = null;   // les données
 const pages = {};
@@ -400,6 +423,7 @@ pages.accueil = () => {
     <section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle('Mes pays', AJOUTER('reglages-pays'))}
       <nav class="pays" aria-label="Mes pays">${prefs.pays.map(p => `<a href="#pays-${p}" class="tuile"><img src="${esc(photoPays(p))}" alt=""><div><strong>${esc(nomPays(p))}</strong><small>${(c.pays || {})[p] || ''}</small></div></a>`).join('')}</nav></section>
     ${blocPile("L'actualité du jour", avecPhoto(e.une).filter(nouveau), "Tu as vu l'essentiel du jour. À demain matin.")}
+    ${blocANePasManquer()}
     ${blocFil('accueil', fil, "Au fil de l'actu")}
     <p class="pied marge">Tu es à jour. À demain matin.</p>` };
 };
