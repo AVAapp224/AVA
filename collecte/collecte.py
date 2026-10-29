@@ -1023,6 +1023,8 @@ def attrait(n):
         s -= 0.15
     l = n.get('largeur', 800)
     s += 0.3 if l >= 1200 else 0.2 if l >= 900 else 0.0 if l >= 640 else -0.4 if l >= 400 else -0.9
+    h = n.get('hauteur', 600)                               # les cartes de l'app sont hautes : une photo basse y serait étirée
+    s += 0.2 if h >= 1000 else 0.0 if h >= 650 else -0.3
     net = n.get('nettete')
     if net is not None:
         s += -0.8 if net < NET_FLOU else -0.3 if net < NET_MOYEN else 0.1
@@ -1135,6 +1137,7 @@ class Photos:
             x['qualite'] = qualite(n)
             if n and n.get('largeur') and n.get('hauteur'):
                 x['format'] = round(n['largeur'] / n['hauteur'], 2)     # > 1 : en largeur ; < 1 : en hauteur
+                x['px'] = [n['largeur'], n['hauteur']]
             x.pop('images', None)
 
     def illustrer(self, elements):

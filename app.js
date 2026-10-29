@@ -124,11 +124,14 @@ function inscrire(x) { registre.set(x.id, x); return x.id; }
 /* Règle d'or : tout article est une photo. Si une photo ne s'affiche pas, l'article disparaît plutôt que d'apparaître sans image. */
 /* les photos passent par un service gratuit qui les réduit à la taille de l'écran : chargement bien plus rapide */
 // « we » : jamais agrandie au-delà de sa vraie taille (une photo étirée devient floue)
-const reduite = (u, l = 900) => `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${l}&we&q=80&output=webp`;
-const LARGEURS = { g: 1200, d: 700, v: 800, p: 600 };   // assez de pixels pour un écran de téléphone net (×3)
+// Pour une case de taille fixe, on demande la photo déjà recadrée à la taille exacte de la case (en pixels d'écran ×3),
+// centrée sur ce qui compte dans l'image (« attention ») : sans ça, une photo en largeur posée dans une carte haute était étirée et floue.
+const reduite = (u, l = 900, h) => `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${l}${h ? `&h=${h}&fit=cover&a=attention` : ''}&we&q=82&output=webp`;
+const LARGEURS = { g: [1080, 1020], d: [540, 1000], v: [600, 1320], p: [540, 640], '': [540, 840] };   // largeur × hauteur en pixels (écran de téléphone ×3)
 function photo(x, alt, l) {
   if (!x.image) return '';
-  return `<img src="${esc(reduite(x.image, l))}" data-original="${esc(x.image)}" alt="${esc(alt || '')}" decoding="async" referrerpolicy="no-referrer" onerror="sansPhoto(this)">`;
+  const [w, h] = Array.isArray(l) ? l : [l];
+  return `<img src="${esc(reduite(x.image, w, h))}" data-original="${esc(x.image)}" alt="${esc(alt || '')}" decoding="async" referrerpolicy="no-referrer" onerror="sansPhoto(this)">`;
 }
 // si la version réduite échoue, on essaie la photo d'origine ; si elle échoue aussi, l'article disparaît
 window.sansPhoto = img => {
@@ -153,23 +156,23 @@ function nouveau(x) {
 const avecPhoto = l => (l || []).filter(x => x && x.image);
 function ligneArticle(a) {
   inscrire(a);
-  return `<a href="${esc(a.lien)}" class="ligne-article" data-ouvrir="${esc(a.id)}"><span class="vignette">${photo(a, '', 160)}</span><span><span>${esc(a.source)}${a.lieu ? ' · ' + esc(a.lieu) : ''} · ${ilYa(a.date)}</span><b>${esc(a.titre)}</b></span></a>`;
+  return `<a href="${esc(a.lien)}" class="ligne-article" data-ouvrir="${esc(a.id)}"><span class="vignette">${photo(a, '', [200, 200])}</span><span><span>${esc(a.source)}${a.lieu ? ' · ' + esc(a.lieu) : ''} · ${ilYa(a.date)}</span><b>${esc(a.titre)}</b></span></a>`;
 }
 
 /* ------------------------------------------------------------------ cartes */
 function carteUne(x) {
   inscrire(x);
-  return `<article class="une" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, 1200)}
+  return `<article class="une" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, [1080, 1400])}
     <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3></div></article>`;
 }
 function bande(x) {
   inscrire(x);
-  return `<a href="${esc(x.lien)}" class="bande" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, 1200)}
+  return `<a href="${esc(x.lien)}" class="bande" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, [1080, 660])}
     <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3></div></a>`;
 }
 function affiche(x) {
   inscrire(x);
-  return `<a href="${esc(x.lien)}" class="affiche" data-ouvrir="${esc(x.id)}">${photo(x, x.titre)}
+  return `<a href="${esc(x.lien)}" class="affiche" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, [720, 1080])}
     <div class="voile"><span class="rubrique">${avecLieu(x.rubrique, x)}</span><h3>${titre(x)}</h3></div></a>`;
 }
 function nbAutres(x) {
@@ -178,7 +181,7 @@ function nbAutres(x) {
 }
 function carte(x, taille, etiquette) {
   inscrire(x);
-  return `<a href="${esc(x.lien)}" class="carte ${taille}" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, LARGEURS[taille])}
+  return `<a href="${esc(x.lien)}" class="carte ${taille}" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, LARGEURS[taille] || LARGEURS[''])}
     ${etiquette ? `<span class="pays-tag">${esc(etiquette)}</span>` : nbAutres(x)}
     <div class="voile">${lieu(x)}<h3>${titre(x)}</h3></div></a>`;
 }
@@ -188,7 +191,8 @@ function carte(x, taille, etiquette) {
 const NOTE_QUALITE = { haute: 2, moyenne: 1, basse: 0 };
 function placer(groupe) {
   const q = x => NOTE_QUALITE[x.qualite] ?? 1;
-  const pourGrande = x => q(x) * 1.5 + (x.format ? (x.format >= 1.3 ? 1 : x.format < 1 ? -1.5 : 0) : 0);
+  // une photo peu haute (moins de 750 px) serait étirée dans une carte haute : elle va de préférence dans la grande carte en largeur
+  const pourGrande = x => q(x) * 1.5 + (x.format ? (x.format >= 1.3 ? 1 : x.format < 1 ? -1.5 : 0) : 0) + (x.px && x.px[1] < 750 ? 1.5 : 0);
   const reste = groupe.slice();
   const g = reste.splice(reste.reduce((m, x, k) => pourGrande(x) > pourGrande(reste[m]) ? k : m, 0), 1)[0];
   return [g, ...reste];
@@ -345,13 +349,13 @@ function blocCinq(nom, items) {
   inscrire(premier);
   return `<section class="marge cinq" style="display:flex;flex-direction:column;gap:14px">${libelle(nom, `${items.length} infos · ${minutes} min`)}
     <a href="${esc(premier.lien)}" class="cinq-une" data-ouvrir="${esc(premier.id)}">
-      <span class="cinq-photo">${photo(premier, premier.titre, 1200)}<span class="cinq-num">1</span></span>
+      <span class="cinq-photo">${photo(premier, premier.titre, [1080, 810])}<span class="cinq-num">1</span></span>
       <span class="cinq-texte"><span class="rubrique">${avecLieu(premier.rubrique, premier)}${medias(premier)}</span>
         <h3>${titre(premier)}</h3>${chapeau(premier)}</span></a>
     <ol class="cinq-liste">${suite.map((x, i) => { inscrire(x); return `<li><a href="${esc(x.lien)}" data-ouvrir="${esc(x.id)}">
       <span class="cinq-num">${i + 2}</span>
       <span class="cinq-texte"><span class="rubrique">${avecLieu(x.rubrique, x)}${medias(x)}</span><b>${titre(x)}</b></span>
-      <span class="vignette">${photo(x, '', 300)}</span></a></li>`; }).join('')}</ol></section>`;
+      <span class="vignette">${photo(x, '', [240, 240])}</span></a></li>`; }).join('')}</ol></section>`;
 }
 function blocPerso(t) {
   const cfg = THEMES[t].perso;
@@ -881,7 +885,7 @@ function ouvrirFiche(id) {
   fond.className = 'fiche-fond';
   fond.innerHTML = `<div class="fiche" role="dialog" aria-modal="true" aria-label="${esc(x.titre)}">
     <span class="poignee" aria-hidden="true"></span>
-    <div class="photo"><img src="${esc(reduite(x.image, 900))}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${esc(x.image)}'"></div>
+    <div class="photo"><img src="${esc(reduite(x.image, 1080, 600))}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${esc(x.image)}'"></div>
     <span class="meta">${esc(principal.nom)} · ${esc(x.rubrique || '')}${x.lieu ? ' · ' + esc(x.lieu) : ''} · ${ilYa(x.date)}</span>
     <h2>${titre(x)}</h2>
     ${x.ia && autres.length ? `<h3>Ce qu'en disent les ${autres.length + 1} médias</h3>` : ''}
