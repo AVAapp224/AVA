@@ -8,3 +8,5 @@ collecte/candidats.txt
 collecte/alt.txt
 .DS_Store
 collecte/sens/sens
+collecte/ia/ia
+donnees/ia.json

@@ -125,7 +125,7 @@ function inscrire(x) { registre.set(x.id, x); return x.id; }
 /* les photos passent par un service gratuit qui les réduit à la taille de l'écran : chargement bien plus rapide */
 // « we » : jamais agrandie au-delà de sa vraie taille (une photo étirée devient floue)
 const reduite = (u, l = 900) => `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${l}&we&q=80&output=webp`;
-const LARGEURS = { g: 1200, v: 800, p: 600 };   // assez de pixels pour un écran de téléphone net (×3)
+const LARGEURS = { g: 1200, d: 700, v: 800, p: 600 };   // assez de pixels pour un écran de téléphone net (×3)
 function photo(x, alt, l) {
   if (!x.image) return '';
   return `<img src="${esc(reduite(x.image, l))}" data-original="${esc(x.image)}" alt="${esc(alt || '')}" decoding="async" referrerpolicy="no-referrer" onerror="sansPhoto(this)">`;
@@ -179,36 +179,28 @@ function nbAutres(x) {
 function carte(x, taille, etiquette) {
   inscrire(x);
   return `<a href="${esc(x.lien)}" class="carte ${taille}" data-ouvrir="${esc(x.id)}">${photo(x, x.titre, LARGEURS[taille])}
-    ${etiquette ? `<span class="pays-tag">${esc(etiquette)}</span>` : ''}
+    ${etiquette ? `<span class="pays-tag">${esc(etiquette)}</span>` : nbAutres(x)}
     <div class="voile">${lieu(x)}<h3>${titre(x)}</h3></div></a>`;
 }
 
-/* la mosaïque du fil, d'après le croquis : une grande en largeur, puis une verticale et deux petites (en miroir une fois sur deux).
-   Chaque photo prend la place qui lui va : la plus grande et la plus nette, en largeur, devient la grande carte ;
-   une photo en hauteur prend la verticale ; les plus petites prennent les petites cases. */
+/* la mosaïque du fil : une grande carte en largeur, puis deux cartes hautes côte à côte. Environ trois cartes par écran.
+   Chaque photo prend la place qui lui va : la plus grande et la plus nette, en largeur, devient la grande carte. */
 const NOTE_QUALITE = { haute: 2, moyenne: 1, basse: 0 };
 function placer(groupe) {
   const q = x => NOTE_QUALITE[x.qualite] ?? 1;
   const pourGrande = x => q(x) * 1.5 + (x.format ? (x.format >= 1.3 ? 1 : x.format < 1 ? -1.5 : 0) : 0);
-  const pourHaute = x => q(x) + (x.format ? (x.format < 1 ? 2 : x.format < 1.4 ? 0.8 : 0) : 0.4);
   const reste = groupe.slice();
-  const prendre = note => reste.splice(reste.reduce((m, x, k) => note(x) > note(reste[m]) ? k : m, 0), 1)[0];
-  const g = prendre(pourGrande);
-  const v = reste.length ? prendre(pourHaute) : undefined;
-  return [g, v, ...reste];
+  const g = reste.splice(reste.reduce((m, x, k) => pourGrande(x) > pourGrande(reste[m]) ? k : m, 0), 1)[0];
+  return [g, ...reste];
 }
 function mosaique(items) {
   items = avecPhoto(items);
   let html = '';
-  for (let i = 0, bloc = 0; i < items.length; i += 4, bloc++) {
-    const [g, v, p1, p2] = placer(items.slice(i, i + 4));
+  for (let i = 0; i < items.length; i += 3) {
+    const [g, d1, d2] = placer(items.slice(i, i + 3));
     if (g) html += carte(g, 'g');
-    if (v && p1 && p2) {
-      const col = `<div class="colonne">${carte(p1, 'p')}${carte(p2, 'p')}</div>`;
-      html += `<div class="rang">${bloc % 2 ? col + carte(v, 'v') : carte(v, 'v') + col}</div>`;
-    } else {
-      [v, p1, p2].filter(Boolean).forEach(x => { html += carte(x, 'g'); });
-    }
+    if (d1 && d2) html += `<div class="rang">${carte(d1, 'd')}${carte(d2, 'd')}</div>`;
+    else if (d1) html += carte(d1, 'g');
   }
   return html;
 }
@@ -337,6 +329,30 @@ function blocPile(titre, items, fin = "Tu as vu l'essentiel de la culture aujour
       <button type="button" class="rond plein" data-swipe="1" aria-label="Garder cette info"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v16l-5-4-5 4z"/></svg></button>
     </div></section>`;
 }
+/* les infos du jour : la première en grand, les suivantes en liste numérotée. Un coup d'œil suffit ; un toucher ouvre le sujet. */
+function chapeau(x) {
+  const r = (x.resume || '').replace(/\s+/g, ' ').trim();
+  if (r.length < 40) return '';
+  const phrase = (r.match(/^.{40,180}?[.!?](\s|$)/) || [r.slice(0, 160).replace(/\s\S*$/, '') + '…'])[0].trim();
+  return `<p class="chapeau">${esc(phrase)}</p>`;
+}
+const nbMedias = x => x.sources ? x.sources.length : 1 + (x.autres || []).length;
+function blocCinq(nom, items) {
+  if (!items.length) return `<section class="marge">${libelle(nom)}<p class="vide">L'essentiel sera prêt demain matin à 6 h.</p></section>`;
+  const minutes = Math.max(1, Math.round(items.length * 0.6));
+  const [premier, ...suite] = items;
+  const medias = x => { const n = nbMedias(x); return n > 1 ? ` · ${n} médias` : ''; };
+  inscrire(premier);
+  return `<section class="marge cinq" style="display:flex;flex-direction:column;gap:14px">${libelle(nom, `${items.length} infos · ${minutes} min`)}
+    <a href="${esc(premier.lien)}" class="cinq-une" data-ouvrir="${esc(premier.id)}">
+      <span class="cinq-photo">${photo(premier, premier.titre, 1200)}<span class="cinq-num">1</span></span>
+      <span class="cinq-texte"><span class="rubrique">${avecLieu(premier.rubrique, premier)}${medias(premier)}</span>
+        <h3>${titre(premier)}</h3>${chapeau(premier)}</span></a>
+    <ol class="cinq-liste">${suite.map((x, i) => { inscrire(x); return `<li><a href="${esc(x.lien)}" data-ouvrir="${esc(x.id)}">
+      <span class="cinq-num">${i + 2}</span>
+      <span class="cinq-texte"><span class="rubrique">${avecLieu(x.rubrique, x)}${medias(x)}</span><b>${titre(x)}</b></span>
+      <span class="vignette">${photo(x, '', 300)}</span></a></li>`; }).join('')}</ol></section>`;
+}
 function blocPerso(t) {
   const cfg = THEMES[t].perso;
   if (!cfg) return '';
@@ -422,7 +438,7 @@ pages.accueil = () => {
       <div class="filet"></div></header>
     <section class="marge" style="display:flex;flex-direction:column;gap:14px">${libelle('Mes pays', AJOUTER('reglages-pays'))}
       <nav class="pays" aria-label="Mes pays">${prefs.pays.map(p => `<a href="#pays-${p}" class="tuile"><img src="${esc(photoPays(p))}" alt=""><div><strong>${esc(nomPays(p))}</strong><small>${(c.pays || {})[p] || ''}</small></div></a>`).join('')}</nav></section>
-    ${blocPile("L'actualité du jour", avecPhoto(e.une).filter(nouveau), "Tu as vu l'essentiel du jour. À demain matin.")}
+    ${blocCinq("L'actualité du jour", avecPhoto(e.une).filter(nouveau))}
     ${blocANePasManquer()}
     ${blocFil('accueil', fil, "Au fil de l'actu")}
     <p class="pied marge">Tu es à jour. À demain matin.</p>` };

@@ -8,6 +8,7 @@ Lancement : python3 collecte.py  →  écrit ../donnees/actus.json
 5. Met à jour le fil à chaque passage.
 """
 import concurrent.futures as cf
+from collections import Counter
 import datetime as dt
 import email.utils
 import gzip
@@ -577,6 +578,11 @@ def regrouper(articles):
             groupes[gi]['articles'].append(a)
         for w in mots:
             index.setdefault(w, set()).add(gi)
+    completer(groupes)
+    return groupes
+
+def completer(groupes):
+    """Calcule pour chaque sujet : nombre de médias, importance, thème, pays."""
     maintenant = dt.datetime.now(dt.timezone.utc)
     for g in groupes:
         arts = g['articles']
@@ -646,7 +652,7 @@ def carte(a):
     liens = list(dict.fromkeys([a['lien']] + ([x['lien'] for x in g['articles']] if g else [])))[:4]
     return dict(liens=liens, id=a['id'], titre=a['titre'], resume=a['resume'], image=images[0] if images else None, images=images, gras=gras(a['titre']),
                 lien=a['lien'], source=a['source'], date=iso(a['date']), lieu=a.get('lieu'), theme=a['theme'], rubrique=THEMES.get(a['theme'], 'Actualité'), pays=a['pays'],
-                langue=a['langue'], autres=autres[:6], imp=round(importance_monde(g), 3) if g else 0.5)
+                langue=a['langue'], autres=autres[:12], nb=1 + len(autres), imp=round(importance_monde(g), 3) if g else 0.5)
 
 # les noms de pays eux-mêmes (pas les villes ni les dirigeants) : « Chine », « China », « chinois »…
 NOMS_PAYS = {w for nom, mots in LIEUX.items() for w in mots.split() if w[:4] == norm(nom).replace(' ', '')[:4]} | set("""china chinese japan japanese germany german spain spanish
@@ -680,6 +686,76 @@ def calculer_rares(groupes):
     MOTS_SUJET_LARGES.update(w for w, c in df.items() if 2 <= c <= 200 and len(w) >= 4 and w not in MOTS_DE_LIEUX)
     RARES_LARGES.clear()
     RARES_LARGES.update(n for n, c in compte.items() if 2 <= c <= 80 and len(n) >= 4 and n not in COURANTS and n not in MOTS_DE_LIEUX and not courant(n))
+
+# ---------------------------------------------------------------- un même événement, une seule fois
+# Le regroupement par les mots rate parfois qu'un article français et un article anglais racontent la même chose.
+# On compare alors les sujets par leur SENS (comprendre.py), en deux temps :
+#  1. dans une même langue : sens presque identique, même pays, et des noms propres ou mots du sujet en commun ;
+#  2. d'une langue à l'autre : on retire au sens ce qui tient à la langue, puis même règle avec des seuils adaptés.
+def fusionner(groupes):
+    for sans_langue in (False, True):
+        try:
+            voisins = comprendre.voisins_de_groupes(groupes, k=12, sans_langue=sans_langue)
+        except Exception as e:
+            print('Fusion par le sens indisponible :', e)
+            return groupes
+        if not voisins:
+            return groupes
+        groupes = _fusionner(groupes, voisins, sans_langue)
+    return groupes
+
+def _fusionner(groupes, voisins, sans_langue):
+    infos = []
+    for g in groupes:
+        infos.append(dict(lieu=lieu_du_groupe(g), noms=noms_du_groupe(g) & RARES_LARGES,
+                          mots=set().union(*(mots_sujet(x['titre']) for x in g['articles'][:4])) & (MOTS_SUJET | MOTS_SUJET_LARGES),
+                          date=max(x['date'] for x in g['articles']),
+                          langue=Counter(x.get('langue') or 'fr' for x in g['articles']).most_common(1)[0][0]))
+    def meme_evenement(i, j, s):
+        a, b = infos[i], infos[j]
+        if abs((a['date'] - b['date']).total_seconds()) > 48 * 3600:
+            return False
+        noms, mots = a['noms'] & b['noms'], a['mots'] & b['mots']
+        if sans_langue:
+            if a['langue'] == b['langue']:
+                return False
+            # même pays et sens proche, ou un nom propre en commun (Mbappé, Brewers…) et sens très proche
+            return (a['lieu'] and a['lieu'] == b['lieu'] and (s >= 0.70 or (s >= 0.60 and noms))) or (s >= 0.80 and len(noms) >= 1)
+        if not a['lieu'] or a['lieu'] != b['lieu']:
+            return False
+        # il faut des noms propres en commun (Mbappé, Netanyahou, Renfe…), pas seulement des mots du même thème
+        if (s >= 0.88 and len(noms) >= 1 and (len(noms) >= 2 or len(mots) >= 1)) or (s >= 0.95 and (len(noms) >= 1 or len(mots) >= 2)):
+            return True
+        # dans une même langue, le sens suffit quand il est presque identique (« collision de trains en Espagne »)
+        return a['langue'] == b['langue'] and s >= 0.95 and len(mots) >= 1
+    racine = list(range(len(groupes)))
+    def trouver(i):
+        while racine[i] != i:
+            racine[i] = racine[racine[i]]
+            i = racine[i]
+        return i
+    for i, proches in enumerate(voisins):
+        for j, s in proches:
+            ri, rj = trouver(i), trouver(j)
+            # on vérifie aussi avec le sujet de départ du groupe, pour éviter les fusions en chaîne
+            if ri != rj and meme_evenement(i, j, s) and (sans_langue or meme_evenement(ri, rj, s)):
+                racine[rj] = ri
+    fusion = {}
+    for i, g in enumerate(groupes):
+        fusion.setdefault(trouver(i), []).append(g)
+    out = []
+    for lot in fusion.values():
+        if len(lot) == 1:
+            out.append(lot[0])
+            continue
+        g = lot[0]
+        for autre in lot[1:]:
+            g['articles'].extend(autre['articles'])
+            g['mots'] |= autre['mots']
+            g['noms'] |= autre['noms']
+        out.append(g)
+    completer(out)
+    return out
 
 # ---------------------------------------------------------------- l'accueil : une vitrine du monde
 # Grands médias de référence : un sujet qu'ils traitent compte même s'ils sont seuls à en parler (ex. le FT sur les banques chinoises).
@@ -894,6 +970,13 @@ def fil(articles, filtre, n, deja=(), max_par_media=8):
             continue
         vus.add(g)
         empreintes.append(e)
+        # le sujet est montré par son meilleur article (en français s'il y en a un, avec une photo), à la date du plus récent
+        if a.get('_groupe'):
+            candidats = [x for x in a['_groupe']['articles'] if filtre(x) and x['lien'] not in liens_deja]
+            r = representant(dict(articles=candidats)) if candidats else a
+            if r is not a:
+                r = dict(r, date=a['date'])
+            a = r
         par_media[a['source']] = par_media.get(a['source'], 0) + 1
         out.append(a)
     # importance : un sujet repris par plusieurs médias remonte ; une petite info locale d'un seul média descend
@@ -1178,6 +1261,11 @@ def lancer():
     apprendre_noms(articles)
     groupes = regrouper(articles)
     calculer_rares(groupes)
+    avant = len(groupes)
+    groupes = fusionner(groupes)
+    if len(groupes) < avant:
+        calculer_rares(groupes)
+        print(f"{avant - len(groupes)} sujets fusionnés (même événement dans des journaux ou des langues différents)")
 
     # --- l'essentiel du jour : figé une fois par jour
     local = dt.datetime.now(FUSEAU)

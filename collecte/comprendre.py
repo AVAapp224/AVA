@@ -53,6 +53,11 @@ def affiner(articles, mots_cles):
         f_art, f_ex, f_pool, f_vois = (os.path.join(tmp, n) for n in ('a.bin', 'e.bin', 'p.bin', 'v.txt'))
         _vecteurs([_texte(a) for a in articles], f_art)
         _vecteurs([f'{l}\t{t}' for _, l, t in exemples], f_ex)
+        # on garde l'empreinte de sens de chaque article : elle sert aussi à reconnaître un même sujet entre langues
+        brut = array.array('f')
+        brut.frombytes(open(f_art, 'rb').read())
+        for i, a in enumerate(articles):
+            a['_vec'] = brut[i * DIM:(i + 1) * DIM]
 
         # 1er passage : ce que disent les seuls titres typiques, pour vérifier les rubriques des journaux
         f_vois0 = os.path.join(tmp, 'v0.txt')
@@ -117,3 +122,63 @@ def affiner(articles, mots_cles):
         a['theme_sur'] = a['theme'] is not None and s1 >= 0.5
         a['confiance_theme'] = round(s1, 2)
     return True
+
+
+# ---------------------------------------------------------------- un même sujet, raconté par des journaux différents
+SEUIL_MEME_SUJET = 0.80
+
+
+def voisins_de_groupes(groupes, k=6, sans_langue=False):
+    """Pour chaque groupe d'articles, ses groupes les plus proches par le sens : [(j, similarité), ...].
+    sans_langue : on retire à chaque article ce qui est commun à tous les articles de sa langue,
+    pour que les voisins d'un sujet en français puissent être les mêmes sujets en anglais ou en espagnol."""
+    moyennes = {}
+    if sans_langue:
+        nb = {}
+        for g in groupes:
+            for a in g['articles']:
+                v = a.get('_vec')
+                if v is None:
+                    continue
+                l = a.get('langue') or 'fr'
+                m = moyennes.setdefault(l, [0.0] * DIM)
+                for i in range(DIM):
+                    m[i] += v[i]
+                nb[l] = nb.get(l, 0) + 1
+        for l, m in moyennes.items():
+            moyennes[l] = [x / nb[l] for x in m]
+    vecs = []
+    for g in groupes:
+        somme = [0.0] * DIM
+        n = 0
+        for a in g['articles']:
+            v = a.get('_vec')
+            if v is None:
+                continue
+            m = moyennes.get(a.get('langue') or 'fr')
+            for i in range(DIM):
+                somme[i] += v[i] - m[i] if m else v[i]
+            n += 1
+        vecs.append(somme if n else None)
+    if not os.path.exists(OUTIL) or sum(1 for v in vecs if v) < 2:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        f_g, f_v = os.path.join(tmp, 'g.bin'), os.path.join(tmp, 'v.txt')
+        with open(f_g, 'wb') as f:
+            for v in vecs:
+                f.write(array.array('f', v or [0.0] * DIM).tobytes())
+        r = subprocess.run([OUTIL, 'voisins', f_g, f_g, str(k + 1), f_v], capture_output=True, timeout=900)
+        if r.returncode != 0:
+            return None
+        lignes = open(f_v, encoding='utf-8').read().splitlines()
+    out = []
+    for i, ligne in enumerate(lignes):
+        proches = []
+        if vecs[i] is not None:
+            for paire in ligne.split():
+                j, s = paire.split(':')
+                j = int(j)
+                if j != i and vecs[j] is not None:
+                    proches.append((j, float(s)))
+        out.append(proches)
+    return out

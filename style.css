@@ -483,3 +483,35 @@ a.icone{color:var(--texte)}
 .medias-fiche a.premier{background:#141414;border-color:#141414;color:#fff}
 .medias-fiche a svg{width:14px;height:14px}
 .fiche{will-change:transform}
+
+/* les infos du jour : une en grand, puis une liste numérotée (lecture en un coup d'œil) */
+.cinq-une{display:flex;flex-direction:column;gap:14px;color:var(--texte);text-decoration:none}
+.cinq-photo{position:relative;display:block;aspect-ratio:4/3;border-radius:24px;overflow:hidden;background:var(--filet)}
+.cinq-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cinq-photo .cinq-num{position:absolute;left:12px;top:12px;z-index:2;width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding-right:3px;box-sizing:border-box;background:rgba(10,14,20,.42);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;font-size:32px}
+.cinq-num{font-family:var(--titre);font-weight:400;font-style:italic;line-height:1;color:var(--or,var(--texte))}
+.cinq-texte{display:flex;flex-direction:column;gap:6px;min-width:0}
+.cinq .rubrique{opacity:1;color:var(--doux)}
+.cinq-une h3{margin:0;font-family:var(--une);font-weight:500;font-size:25px;line-height:1.13;letter-spacing:-.01em;text-wrap:balance}
+.chapeau{margin:2px 0 0;font-size:15px;line-height:1.45;color:var(--doux)}
+.cinq-liste{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;border-top:1px solid var(--filet)}
+.cinq-liste li{border-bottom:1px solid var(--filet)}
+.cinq-liste a{display:grid;grid-template-columns:34px minmax(0,1fr) 76px;gap:12px;align-items:center;padding:14px 0;color:var(--texte);text-decoration:none}
+.cinq-liste .cinq-num{font-size:30px;text-align:center}
+.cinq-liste b{font-family:var(--une);font-weight:500;font-size:17px;line-height:1.2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.cinq-liste b strong{font-weight:600}
+.cinq-liste .vignette{position:relative;width:76px;height:76px;border-radius:14px;overflow:hidden;background:var(--filet)}
+.cinq-liste .vignette img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+
+/* le fil : une grande carte, puis deux cartes hautes côte à côte */
+.d{flex:1 1 0;min-width:0;height:300px}.d h3{font-size:16.5px}
+.carte.d h3{-webkit-line-clamp:5}
+@media (max-width: 899px) {
+  .g{height:340px}
+  .d{height:330px}.d h3{font-size:17px}
+  .d .voile{left:8px;right:8px;bottom:8px;padding:11px 12px 12px}
+}
+@media (min-width: 900px) {
+  .d{height:420px}
+  .cinq{max-width:760px}
+}
