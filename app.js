@@ -884,7 +884,10 @@ function ouvrirFiche(id) {
     <div class="photo"><img src="${esc(reduite(x.image, 900))}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${esc(x.image)}'"></div>
     <span class="meta">${esc(principal.nom)} · ${esc(x.rubrique || '')}${x.lieu ? ' · ' + esc(x.lieu) : ''} · ${ilYa(x.date)}</span>
     <h2>${titre(x)}</h2>
+    ${x.ia && autres.length ? `<h3>Ce qu'en disent les ${autres.length + 1} médias</h3>` : ''}
     ${x.resume ? `<p>${esc(x.resume)}</p>` : ''}
+    ${x.divergence ? `<div class="divergence"><h3>Là où les médias divergent</h3><p>${esc(x.divergence)}</p></div>` : ''}
+    ${x.ia ? `<p class="note-ia">${autres.length ? 'Résumé écrit par AVA à partir de tous ces articles.' : 'Traduit par AVA.'} Pour tout lire, ouvre les originaux ci-dessous.</p>` : ''}
     <h3>${autres.length ? `Lire l'article chez ces ${autres.length + 1} médias` : 'Lire l\'article'}</h3>
     <div class="medias-fiche">${[principal, ...autres].map((m, k) => `<a class="${k ? '' : 'premier'}" href="${esc(m.lien)}" target="_blank" rel="noopener" data-lu="${esc(x.id)}">${esc(m.nom)}${FLECHE}</a>`).join('')}</div>
     <button type="button" class="fermer">Fermer</button></div>`;
@@ -1105,9 +1108,38 @@ function activerPile() {
 
 /* ------------------------------------------------------------------ chargement et mise à jour */
 async function charger() {
-  const r = await fetch(DONNEES + '?t=' + Date.now(), { cache: 'no-store' });
+  const [r, ia] = await Promise.all([
+    fetch(DONNEES + '?t=' + Date.now(), { cache: 'no-store' }),
+    fetch(TEXTES_IA + '?t=' + Date.now(), { cache: 'no-store' }).then(x => x.ok ? x.json() : null).catch(() => null),
+  ]);
   if (!r.ok) throw new Error('données indisponibles');
-  return r.json();
+  const d = await r.json();
+  if (ia && ia.textes) appliquerTextes(d, ia.textes);
+  return d;
+}
+/* les titres en français et les résumés écrits par Claude (collecte/ia.py) remplacent ceux des journaux */
+const TEXTES_IA = 'donnees/ia.json';
+const cleLien = l => (l || '').replace(/[?#].*$/, '').replace(/\/+$/, '');
+function appliquerTextes(d, textes) {
+  const vus = new Set();
+  (function parcourir(o) {
+    if (!o || typeof o !== 'object' || vus.has(o)) return;
+    vus.add(o);
+    if (Array.isArray(o)) { o.forEach(parcourir); return; }
+    if (o.id && o.lien && o.titre) {
+      const t = textes[cleLien(o.lien)];
+      if (t && t.titre) {
+        o.titre_journal = o.titre;
+        o.titre = t.titre;
+        if (t.resume) o.resume = t.resume;
+        o.divergence = t.divergence || '';
+        o.gras = [];
+        o.ia = true;
+      }
+      return;
+    }
+    Object.values(o).forEach(parcourir);
+  })(d);
 }
 async function demarrer() {
   try {

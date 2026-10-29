@@ -1319,11 +1319,56 @@ def lancer():
         medias=[{'nom': nom, 'pays': pays} for sid, nom, pays, langue, flux in SOURCES if etats.get(nom, {}).get('ok')],
     )
     ecrire_json(os.path.join(DONNEES, 'actus.json'), sortie)
+    preparer_ia(sortie, articles)
     # ménage : on ne garde que les 7 derniers jours d'essentiels
     for f in sorted(x for x in os.listdir(ETAT) if x.startswith('essentiel-'))[:-7]:
         os.remove(os.path.join(ETAT, f))
     print(f"{len(articles)} articles, {len(groupes)} sujets, {sortie['nb_sources']} médias, en {time.time() - debut:.0f} s")
     return sortie
+
+# ---------------------------------------------------------------- pour Claude (ia.py)
+# Ce que l'on montre, avec le texte de tous les articles de chaque sujet, du plus visible au moins visible :
+# ia.py s'en sert pour écrire les titres en français et les résumés de ce que disent tous les médias.
+POUR_IA = os.path.join(ICI, 'pour-ia.json')
+
+def cle_lien(lien):
+    return re.sub(r'[?#].*$', '', lien or '').rstrip('/')
+
+def preparer_ia(sortie, articles):
+    par_lien = {a['lien']: a for a in articles}
+    vus, sujets = set(), []
+    def ajouter(x, priorite):
+        k = cle_lien(x.get('lien'))
+        if not k or k in vus:
+            return
+        vus.add(k)
+        a = par_lien.get(x['lien'])
+        g = a.get('_groupe') if a else None
+        if g:
+            r = representant(g)
+            arts, medias = [], set()
+            for y in sorted(g['articles'], key=lambda y: (y is not r, y['langue'] != 'fr', -len(y['resume']))):
+                if y['source'] not in medias:
+                    medias.add(y['source'])
+                    arts.append(dict(media=y['source'], langue=y['langue'], titre=y['titre'], resume=y['resume'][:500]))
+        else:
+            arts = [dict(media=x.get('source', ''), langue=x.get('langue', 'fr'), titre=x['titre'], resume=(x.get('resume') or '')[:500])]
+            arts += [dict(media=o.get('nom', ''), langue='', titre=o.get('titre', ''), resume='') for o in (x.get('sources') or [])[1:] + (x.get('autres') or [])]
+        sujets.append(dict(cle=k, priorite=priorite, articles=arts[:10]))
+    e = sortie['essentiel']
+    for x in e['une']:
+        ajouter(x, 0)
+    for x in sortie['a_ne_pas_manquer']:
+        ajouter(x, 1)
+    for x in sortie['fils']['accueil']:
+        ajouter(x, 2)
+    for liste in list(e['themes'].values()) + list(e['pays'].values()):
+        for x in liste:
+            ajouter(x, 3)
+    for liste in list(sortie['fils']['themes'].values()) + list(sortie['fils']['pays'].values()):
+        for x in liste:
+            ajouter(x, 4)
+    ecrire_json(POUR_IA, sujets)
 
 if __name__ == '__main__':
     lancer()

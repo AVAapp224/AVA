@@ -22,6 +22,8 @@ jobs:
   collecte:
     runs-on: macos-latest       # macOS : pour l'analyse des photos (visages, beauté) intégrée au système
     timeout-minutes: 25
+    env:
+      CLE_IA: ${{ secrets.ANTHROPIC_API_KEY }}   # vide tant que la clé n'est pas enregistrée : l'étape Claude est alors sautée
     steps:
       - uses: actions/checkout@v4
       - name: Préparer l'outil d'analyse des photos
@@ -31,6 +33,19 @@ jobs:
       - name: Collecter l'actualité
         working-directory: collecte
         run: python3 collecte.py
+      - uses: actions/setup-python@v5
+        if: ${{ env.CLE_IA != '' }}
+        with:
+          python-version: '3.12'
+      - name: Titres en français et résumés (Claude)
+        if: ${{ env.CLE_IA != '' }}
+        working-directory: collecte
+        timeout-minutes: 10
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python -m pip install --quiet anthropic
+          python ia.py
       - name: Enregistrer l'actualité
         run: |
           git config user.name "AVA"

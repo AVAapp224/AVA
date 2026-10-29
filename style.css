@@ -515,3 +515,7 @@ a.icone{color:var(--texte)}
   .d{height:420px}
   .cinq{max-width:760px}
 }
+/* la fiche : ce que tous les médias racontent, et leurs différences */
+.fiche .divergence{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:14px;background:rgba(184,134,46,.12);border-left:3px solid #B8862E}
+.fiche .divergence h3{margin:0;color:#7A5714}
+.fiche .note-ia{font-size:12px;color:rgba(0,0,0,.5)}
