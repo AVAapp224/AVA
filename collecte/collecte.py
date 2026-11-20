@@ -782,7 +782,7 @@ def importance_monde(g):
     duree = 18 * (1 + 0.25 * min(6, len(medias) - 1)) * (1.5 if AMPLEUR.search(norm(arts[0]['titre'])) else 1) * (1.2 if medias & REFERENCE else 1)
     return s * math.exp(-age / duree)
 
-AMPLEUR = re.compile(r"\b(centaines|milliers|millions|milliards|hundreds|thousands|millions|billions|historique|historic|sans precedent|unprecedented|crise|crisis|seisme|earthquake|tsunami|coup d'etat|famine|epidemie|pandemic|genocide|faillite|faillites|bankruptcy|collapse|effondrement|krach)\b")
+AMPLEUR = re.compile(r"\b(centaines|milliers|millions|milliards|hundreds|thousands|millions|billions|historique|historic|sans precedent|unprecedented|crise|crisis|seisme|earthquake|tsunami|coup d'etat|famine|epidemie|pandemic|genocide|faillite|faillites|bankruptcy|collapse|effondrement|krach|record|de l histoire|in history|attentat|explosion)\b")
 # pays dont nos médias parlent déjà beaucoup : le « reste du monde » a ses places réservées dans la vitrine
 TRES_COUVERTS = {'France', 'Québec', 'Canada', 'États-Unis', 'Royaume-Uni', 'Belgique', 'Suisse'}
 
@@ -793,13 +793,44 @@ def lieu_du_groupe(g):
     lieux = [x['lieu'] for x in g['articles'] if x.get('lieu')]
     return max(set(lieux), key=lieux.count) if lieux else None
 
+A_LA_UNE = os.path.join(ETAT, 'a-la-une.txt')   # sujets à mettre en tête de l'essentiel : une ligne de mots-clés par sujet
+
+def en_francais(g):
+    return any(x['langue'] == 'fr' for x in g['articles'])
+
+def sujets_en_tete(tri):
+    """Les sujets demandés dans a-la-une.txt (ex. « anthropic »), dans l'ordre du fichier, s'ils sont dans l'actualité."""
+    try:
+        with open(A_LA_UNE, encoding='utf-8') as f:
+            lignes = [l.strip() for l in f if l.strip() and not l.startswith('#')]
+    except OSError:
+        return []
+    tete = []
+    for ligne in lignes:
+        mots = norm(ligne).split()
+        for g in tri:
+            texte = norm(' '.join(x['titre'] for x in g['articles']))
+            if g not in tete and all(m in texte for m in mots):
+                tete.append(g)
+                break
+    return tete
+
 def une_monde(groupes, n=10):
-    """Les infos du jour : les plus importantes, mais pas deux fois le même pays (sauf événement énorme)."""
+    """Les infos du jour : les plus importantes des dernières 24 h, toutes racontées en français,
+    pas deux fois le même sujet ni le même pays (sauf événement énorme)."""
+    maintenant = dt.datetime.now(dt.timezone.utc)
+    for heures in (24, 48, 96):   # on élargit seulement s'il n'y a pas assez de sujets
+        candidats = [g for g in groupes if en_francais(g) and maintenant - max(x['date'] for x in g['articles']) <= dt.timedelta(hours=heures)]
+        if len(candidats) >= 3 * n:
+            break
+    tri = sorted(candidats, key=importance_monde, reverse=True)
+    tete = sujets_en_tete(tri)
+    ids_tete = {id(g) for g in tete}
     out, par_lieu = [], {}
-    for g in sans_doublon(sorted(groupes, key=importance_monde, reverse=True)[:80]):
+    for g in sans_doublon(tete + [g for g in tri[:80] if id(g) not in ids_tete]):
         l = lieu_du_groupe(g) or '?'
         limite = 2 if g['nb_sources'] >= 12 else 1
-        if par_lieu.get(l, 0) >= limite:
+        if id(g) not in ids_tete and par_lieu.get(l, 0) >= limite:
             continue
         par_lieu[l] = par_lieu.get(l, 0) + 1
         out.append(g)
@@ -1284,6 +1315,11 @@ def lancer():
         essentiel['une'] = photos.garder(essentiel['une'], 5, True)
         essentiel['themes'] = {t: photos.garder(l, 5, True) for t, l in essentiel['themes'].items()}
         essentiel['pays'] = {p: photos.garder(l, 5, True) for p, l in essentiel['pays'].items()}
+        ecrire_json(chemin_jour, essentiel)
+    if essentiel.get('v') != 2:
+        # nouvelle règle (les 5 infos du jour toutes en français, récentes) : on refait la une sans toucher au reste
+        essentiel['une'] = photos.garder(une_monde(groupes), 5, True)
+        essentiel['v'] = 2
         ecrire_json(chemin_jour, essentiel)
 
     manquants = [p for p in PAYS_SUIVIS if p not in essentiel['pays']]
