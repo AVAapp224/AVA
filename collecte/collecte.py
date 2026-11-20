@@ -795,6 +795,9 @@ def lieu_du_groupe(g):
 
 A_LA_UNE = os.path.join(ETAT, 'a-la-une.txt')   # sujets à mettre en tête de l'essentiel : une ligne de mots-clés par sujet
 
+# pas de dessin, de quiz ni de vidéo dans les 5 infos du jour
+RUBRIQUE_LEGERE = re.compile(r"^(l.actu en dessin|en images|en video|video|quiz|podcast|revue de presse|le dessin|la chronique)")
+
 def en_francais(g):
     return any(x['langue'] == 'fr' for x in g['articles'])
 
@@ -820,7 +823,7 @@ def une_monde(groupes, n=10):
     pas deux fois le même sujet ni le même pays (sauf événement énorme)."""
     maintenant = dt.datetime.now(dt.timezone.utc)
     for heures in (24, 48, 96):   # on élargit seulement s'il n'y a pas assez de sujets
-        candidats = [g for g in groupes if en_francais(g) and maintenant - max(x['date'] for x in g['articles']) <= dt.timedelta(hours=heures)]
+        candidats = [g for g in groupes if en_francais(g) and not RUBRIQUE_LEGERE.match(norm(representant(g)['titre'])) and maintenant - max(x['date'] for x in g['articles']) <= dt.timedelta(hours=heures)]
         if len(candidats) >= 3 * n:
             break
     tri = sorted(candidats, key=importance_monde, reverse=True)
